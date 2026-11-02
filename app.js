@@ -156,7 +156,7 @@ function reveal(c,n,ok,dr,prevc,nextc){
  h+='</div></div><h2>译文</h2><div class=noteb lang=zh><div>'+esc(c.zp)+'</div></div>'+
   '<h2>解说</h2><div class=noteb><b>答案 '+c.a+'：</b>'+esc(c.ex)+'</div>'+
   '<div class=src>'+srcTag('a',c.as)+srcTag('z',c.zs)+'</div>'+
-  '<h2>你听懂了吗？</h2><p><button id=ok class="btn good">听懂了</button> <button id=no class="btn bad">没听懂，加入重听</button></p><div id=after></div>';
+  '<h2>你听懂了吗？</h2><div class=rrow><button id=ok class="btn good">听懂了</button><button id=no class="btn bad">没听懂</button><button id=nx class="btn go" disabled>下一题 →</button></div><p class=note>「没听懂」会加入重听，明天再出现。</p><div id=after></div>';
  $('#rev').innerHTML=h;
  var a2=$('#au2');audioEl=a2;
  [].forEach.call(document.querySelectorAll('[data-r]'),function(b){b.onclick=function(){a2.playbackRate=+b.getAttribute('data-r');};});
@@ -169,8 +169,18 @@ function reveal(c,n,ok,dr,prevc,nextc){
   save();
   $('#ok').disabled=$('#no').disabled=true;
   var nv=$('nav a:nth-child(2)');if(nv)nv.textContent='🔁 重听('+wrongOpen().length+')';
-  if(dr){$('#after').innerHTML='<p class=note>已记录'+(u?' ✓':'，会在明天再次出现')+'</p><p><button id=nx class="btn go">'+(DRILL.i+1>=DRILL.q.length?'完成':'下一题 →')+'</button></p>';$('#nx').onclick=drillNext;setKeys(function(e){if(e.key==='Enter'||e.key==='ArrowRight')drillNext();});}
-  else{$('#after').innerHTML='<p class=note>已记录'+(u?' ✓':'，会在明天再次出现')+'</p><p>'+(prevc?'<a class=btn href="#/clip/'+c.id+'/'+prevc.k+'">← 上一题</a> ':'')+'<a class=btn href="#/paper/'+c.id+'">目录</a> '+(nextc?'<a class="btn go" style="display:inline-block" href="#/clip/'+c.id+'/'+nextc.k+'">下一题 →</a>':'')+'</p>';setKeys(null);}
+  var nx=$('#nx'),msg='<p class=note>已记录'+(u?' ✓':'，会在明天再次出现')+'</p>';
+  nx.disabled=false;
+  if(dr){
+   nx.textContent=(DRILL.i+1>=DRILL.q.length?'完成':'下一题 →');nx.onclick=drillNext;
+   $('#after').innerHTML=msg;
+   setKeys(function(e){if(e.key==='Enter'||e.key==='ArrowRight')drillNext();});
+  }else{
+   if(nextc){nx.onclick=function(){location.hash='#/clip/'+c.id+'/'+nextc.k;};}
+   else{nx.textContent='回目录';nx.onclick=function(){location.hash='#/paper/'+c.id;};}
+   $('#after').innerHTML=msg+'<p>'+(prevc?'<a class=btn href="#/clip/'+c.id+'/'+prevc.k+'">← 上一题</a> ':'')+'<a class=btn href="#/paper/'+c.id+'">目录</a></p>';
+   setKeys(function(e){if(e.key==='Enter'||e.key==='ArrowRight')nx.click();});
+  }
  }
  $('#ok').onclick=function(){rate(true);};
  $('#no').onclick=function(){rate(false);};

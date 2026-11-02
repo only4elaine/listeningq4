@@ -143,3 +143,5 @@ th{background:rgba(255,255,255,.35)}table{border-radius:14px;overflow:hidden}
 .pbtns .btn.wk{border-color:var(--ac)}
 .kv{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px;margin:4px 0}
 .mtab td,.mtab th{font-size:13px}
+
+.rrow{display:flex;gap:8px;margin:8px 0}.rrow .btn{flex:1;margin:0;padding:12px 4px;text-align:center;white-space:nowrap}.rrow .btn:disabled{opacity:.45;cursor:default}
