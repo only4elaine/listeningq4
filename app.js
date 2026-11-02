@@ -1,6 +1,7 @@
 (function(){
 'use strict';
 var KEY='q4app_v1';
+var GROUP=11; // 现行真题一次 11 题
 var INT=[1,2,4,7,15];
 var D=window.Q4||{papers:[],missing:[]};
 var S;
@@ -44,7 +45,7 @@ function home(){
  h+='<div class=hero><div class=trow><b>进度</b><span class=chip>共 '+st.total+' 题 · '+D.papers.length+' 套</span></div>'+
   '<div class=kv><span>已作答 <b>'+st.n+'</b> / '+st.total+'</span><span>答对 <b>'+st.ok+'</b>'+(st.n?'（'+Math.round(st.ok/st.n*100)+'%）':'')+'</span><span>自评听懂 <b>'+st.u+'</b></span></div>'+
   '<div class=todo><p style="margin:0 0 8px">'+(due?'有 <b>'+due+'</b> 题到期要重听':'今天没有到期的重听')+'（错题/没听懂共 '+open+' 题）</p>'+
-  '<a class="btn go" href="#/drill/rand">🎯 随机一组（6 题）</a>'+
+  '<a class="btn go" href="#/drill/rand">🎯 随机一组（'+GROUP+' 题，和真题一样）</a>'+
   (due?'<a class="btn go" style="margin-top:8px" href="#/drill/due">🔁 先练到期重听（'+due+'）</a>':'')+'</div></div>';
  h+='<h2>按卷子练习</h2><div class=grid>';
  PLIST.forEach(function(p){var a=0,o=0;p.clips.forEach(function(c){var l=S.log[c.key];if(l){a++;if(l.ok)o++;}});
@@ -76,12 +77,12 @@ var DRILL=null;
 function startDrill(mode,arg){
  var q=[];
  if(mode==='paper'){q=PAP[arg]?PAP[arg].clips.map(function(c){return c.key;}):[];}
- else if(mode==='due'){q=shuffle(wrongDue()).slice(0,6);}
+ else if(mode==='due'){q=shuffle(wrongDue()).slice(0,GROUP);}
  else{
-  var due=shuffle(wrongDue()).slice(0,2);
+  var due=shuffle(wrongDue()).slice(0,3);
   var unseen=shuffle(ALL.filter(function(c){return !S.log[c.key]&&due.indexOf(c.key)<0;}).map(function(c){return c.key;}));
   var rest=shuffle(ALL.filter(function(c){return S.log[c.key]&&due.indexOf(c.key)<0;}).map(function(c){return c.key;}));
-  q=due.concat(unseen).concat(rest).slice(0,6);
+  q=due.concat(unseen).concat(rest).slice(0,GROUP);
   q=shuffle(q);
  }
  if(!q.length){render('<h1>没有题目</h1><p class=note>这个范围里没有可练的题。</p><a class=btn href="#/home">返回</a>');return;}
