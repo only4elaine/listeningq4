@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v21 · 11-06 16:20';
+var APPV='v22 · 11-06 16:40';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -42,14 +42,18 @@ document.addEventListener('keydown',function(e){if(KEYH&&!e.metaKey&&!e.ctrlKey&
 function bkText(){vLoad();gLoad();return JSON.stringify({app:'q4',ver:2,time:new Date().toISOString(),S:S,V:V,G:GP});}
 function bkApply(txt,msgEl,done){var o;try{o=JSON.parse(String(txt||'').trim());}catch(e){}
  if(!o||o.app!=='q4'||!o.S||!o.V||!o.V.cards){msgEl.textContent='这不是有效的进度内容。';return;}
- if(!confirm('导入会用这份进度覆盖这台设备上的听力进度和背词进度，确定吗？\n（导出时间：'+(o.time||'未知')+'）'))return;
+ var nv=Object.keys(o.V.cards).length,ng=o.G&&o.G.c?Object.keys(o.G.c).length:0,nl=Object.keys(o.S.log||{}).length;
+ if(!confirm('导入会用这份进度覆盖这台设备上的当前进度，确定吗？\n文件里有：听力记录 '+nl+' 条、单词 '+nv+' 个、语法 '+ng+' 条的学习记录\n（导出时间：'+(o.time||'未知')+'）'))return;
  S=o.S;S.log=S.log||{};S.wrong=S.wrong||{};S.prefs=S.prefs||{};save();V=o.V;vSave();if(o.G&&o.G.c){GP=o.G;gSave();}msgEl.textContent='导入完成。';done();}
-function bkBox(){return '<textarea id=bktx rows=4 style="width:100%;box-sizing:border-box" placeholder="点「导出到文本框」后进度文本会出现在这里，可复制保存；换设备时把文本粘贴到这里，再点「从文本框导入」"></textarea>'+
- '<p><button class="btn go" id=bkx>导出进度（文件）</button> <button class=btn id=bkc>导出到文本框并复制</button></p>'+
- '<p><label class=btn style="display:inline-block;cursor:pointer">从文件导入<input type=file id=bki accept=".json,application/json,text/plain" style="display:none"></label> <button class=btn id=bkt>从文本框导入</button></p><p id=bkm class=note></p>';}
+function bkBox(){return '<p><button class="btn go" id=bkx>⬇ 导出为文件</button> <label class=btn style="display:inline-block;cursor:pointer">⬆ 从文件导入<input type=file id=bki accept=".json,application/json,text/plain" style="display:none"></label></p><p id=bkm class=note></p>'+
+ '<details class=more><summary>文字方式（复制／粘贴）</summary><textarea id=bktx rows=4 style="width:100%;box-sizing:border-box" placeholder="点「导出到文本框并复制」后进度文本会出现在这里；换设备时把文本粘贴到这里，再点「从文本框导入」"></textarea>'+
+ '<p><button class=btn id=bkc>导出到文本框并复制</button> <button class=btn id=bkt>从文本框导入</button></p></details>';}
 function dlFile(name,text,type){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);}
 function bkBind(done){var m=$('#bkm');
- $('#bkx').onclick=function(){var d=new Date();try{dlFile('q4-进度-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.json',bkText(),'application/json');m.textContent='已导出文件（含听力进度和背词进度）。';}catch(e){m.textContent='下载失败，请用「导出到文本框」。';}};
+ $('#bkx').onclick=function(){var d=new Date(),nm='q4-进度-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.json',t=bkText();
+  try{var f=new File([t],nm,{type:'application/json'});
+   if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:nm}).then(function(){m.textContent='已导出。';},function(e){if(e&&e.name!=='AbortError'){dlFile(nm,t,'application/json');m.textContent='已下载文件。';}});return;}
+   dlFile(nm,t,'application/json');m.textContent='已导出文件（含听力、单词、语法进度）。';}catch(e){m.textContent='导出失败，请用下面的「文字方式」。';}};
  $('#bkc').onclick=function(){var t=bkText();$('#bktx').value=t;$('#bktx').select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}
   if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){m.textContent='已复制到剪贴板，也在文本框里。';},function(){m.textContent=ok?'已复制。':'已放进文本框，请手动全选复制。';});}else{m.textContent=ok?'已复制。':'已放进文本框，请手动全选复制。';}};
  $('#bki').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){bkApply(fr.result,m,done);};fr.readAsText(f,'utf-8');};
