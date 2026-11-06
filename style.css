@@ -192,3 +192,9 @@ th{background:rgba(255,255,255,.35)}table{border-radius:14px;overflow:hidden}
 @media(prefers-color-scheme:dark){.plan .ptask{background:rgba(255,255,255,.06)}.plan .pti{background:rgba(255,255,255,.12)}.plan .pd.today i{background:rgba(255,255,255,.1)}}
 .plan .pstreak small{max-width:none;font-size:13px;opacity:.75}
 nav{overflow-x:auto;white-space:nowrap;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav a{flex:none}
+html,body{overscroll-behavior-y:contain}
+.sstem{font-size:1.15em;line-height:2.3}
+.sslot{min-width:3.2em;min-height:2em;padding:2px 8px;margin:0 2px;border:1.5px dashed var(--ng,#aaa);border-radius:10px;background:rgba(255,255,255,.4);font:inherit;color:inherit;cursor:pointer}
+.sslot.star{border-color:#d9a441}.sslot.on{border-style:solid;background:rgba(169,184,168,.45)}
+.schips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.schips .btn{margin:0;width:auto}
+.sstar{color:#c0392b}

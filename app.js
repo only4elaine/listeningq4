@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v20 · 11-06 16:00';
+var APPV='v21 · 11-06 16:20';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -341,16 +341,18 @@ function examRun(wrongOnly){
    if($('#xretry'))$('#xretry').onclick=function(){qs=bad.map(function(q){return {x:q.x,ops:q.ops,ans:q.ans};});i=0;ok=0;show();};
    $('#xagain').onclick=function(){examRun(wrongOnly);};return;}
   var q=qs[i],x=q.x,done=false;
-  render('<p class=note>真题 '+(i+1)+' / '+qs.length+' · '+esc(x.e)+' · '+XS(x.s)+'</p><div class=hero><div style="font-size:1.15em;line-height:1.8">'+xHtml(x)+'</div></div>'+
-   q.ops.map(function(o,k){return '<p><button class="btn vop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join('')+'<div id=vres></div>');
-  function choose(k){if(done)return;done=true;var good=q.ops[k]===q.ans;q.right=good;if(good){ok++;delete XWRONG[XM][x.id];}else XWRONG[XM][x.id]=1;xwSave();
+  var SRT=x.s===8&&x.ord;
+  render('<p class=note>真题 '+(i+1)+' / '+qs.length+' · '+esc(x.e)+' · '+XS(x.s)+'</p>'+(SRT?'<p class=note>把四个选项排成通顺的句子</p><div class=hero style="font-size:1.15em;line-height:2.1"><div id=vsort></div></div>':'<div class=hero><div style="font-size:1.15em;line-height:1.8">'+xHtml(x)+'</div></div>')+
+   (SRT?'':q.ops.map(function(o,k){return '<p><button class="btn vop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join(''))+'<div id=vres></div>');
+  function choose(k,g2,pre){if(done)return;done=true;var good=k>=0?q.ops[k]===q.ans:g2;q.right=good;if(good){ok++;delete XWRONG[XM][x.id];}else XWRONG[XM][x.id]=1;xwSave();
    var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++){bs[j].disabled=true;if(q.ops[j]===q.ans)bs[j].className+=' good';else if(j===k)bs[j].className+=' bad';}
    var lk=x.v?'<p class=note>对应词库里的词：'+esc(x.v)+'</p>':'';
    if(x.g&&window.Q4G){var gi=window.Q4G.filter(function(g){return g.n===x.g;})[0];if(gi)lk='<p class=note>对应语法：'+esc(gi.g)+'</p>';}
-   $('#vres').innerHTML='<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(q.ans))+'</b></p>'+lk+'<p><button class="btn go" id=vnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
+   $('#vres').innerHTML=(pre?pre:'<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(q.ans))+'</b></p>')+lk+'<p><button class="btn go" id=vnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
    $('#vnq').onclick=function(){i++;show();};}
+  if(SRT)sortUI(x,$('#vsort'),function(g,r){choose(-1,g,r);});
   var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){choose(+this.getAttribute('data-k'));};
-  setKeys(function(e){var n=parseInt(e.key,10);if(!done&&n>=1&&n<=4)choose(n-1);else if(done&&(e.key==='Enter'||e.key===' ')){e.preventDefault();i++;show();}});
+  setKeys(function(e){var n=parseInt(e.key,10);if(!done&&!SRT&&n>=1&&n<=4)choose(n-1);else if(done&&(e.key==='Enter'||e.key===' ')){e.preventDefault();i++;show();}});
  }
  show();
 }
@@ -507,6 +509,28 @@ function readDist(c,n){var r=c.r,out=[],P=rPool().filter(function(x){return x!==
 /* 真题：把题库里和这个词对应的题找出来 */
 var XIDX=null;
 function xIdx(){if(XIDX)return XIDX;XIDX={};(window.Q4X||[]).forEach(function(x){if(x.v){(XIDX[x.v]=XIDX[x.v]||[]).push(x);}});return XIDX;}
+function sortUI(x,el,cb){
+ var m=x.q.match(/\s*(＿＿ ＿＿ ★ ＿＿|＿＿ ★ ＿＿ ＿＿)\s*/),pa=x.q.split(m[0]),st=m[1].split(' ').indexOf('★'),sl=[-1,-1,-1,-1],fin=false;
+ function draw(){
+  var h='<div class=sstem>'+esc(pa[0])+' ';
+  sl.forEach(function(k,i){h+='<button class="sslot'+(i===st?' star':'')+(k>=0?' on':'')+'" data-s="'+i+'"'+(fin?' disabled':'')+'>'+(k>=0?esc(x.o[k]):(i===st?'★':(i+1)))+'</button> ';});
+  h+=esc(pa[1])+'</div><div class=schips>';
+  x.o.forEach(function(o,k){h+='<button class="btn schip" data-k="'+k+'"'+(fin||sl.indexOf(k)>=0?' disabled':'')+'>'+esc(o)+'</button>';});
+  h+='</div>';
+  if(!fin)h+='<p class=note>依次点选项放进空格，点已放入的格子可取消</p>'+(sl.indexOf(-1)<0?'<p><button class="btn go" id=sok>确认顺序</button></p>':'');
+  el.innerHTML=h;
+  Array.prototype.forEach.call(el.querySelectorAll('.schip'),function(b){b.onclick=function(){var e=sl.indexOf(-1);if(e>=0){sl[e]=+b.getAttribute('data-k');draw();}};});
+  Array.prototype.forEach.call(el.querySelectorAll('.sslot'),function(b){b.onclick=function(){sl[+b.getAttribute('data-s')]=-1;draw();};});
+  if($('#sok'))$('#sok').onclick=function(){
+   fin=true;var good=sl.every(function(k,i){return k===x.ord[i];});
+   var full=esc(pa[0])+x.ord.map(function(k,i){return i===st?'<b class=sstar>'+esc(x.o[k])+'</b>':esc(x.o[k]);}).join('')+esc(pa[1]);
+   draw();
+   var r='<p><b>'+(good?'答对了':'顺序不对')+'</b>'+(good?'':'　★ 处应填：<b>'+esc(x.o[x.a])+'</b>')+'</p>'+(good?'':'<p class=note>你的排法：'+sl.map(function(k){return esc(x.o[k]);}).join(' ＋ ')+'</p>')+
+    '<div class=hero style="text-align:left"><span class=note>正确的完整句子（★ 是加粗的部分）</span><br>'+full+(x.n?'<p class=note style="margin:.6em 0 0">解说：'+esc(x.n)+'</p>':'')+'</div>';
+   cb(good,r);};
+ }
+ draw();
+}
 function xHtml(x){var q=esc(x.q);if(x.s===8)return '<span class=note>把四个选项排成通顺的句子，<b>★</b> 处应填哪个？</span><br>'+q;if(x.s===7)return q.replace(/（　）/g,'＿＿');if(x.u){var u=esc(x.u);q=q.replace(u,'<u>'+u+'</u>');}return q;}
 var XSEC={1:'读音',2:'汉字',3:'接辞',4:'文脉',5:'近义'},XSEC_G={7:'文法形式',8:'★排序'};
 function xMake(x,c){return {c:c,t:'exam',x:x,q:'<span class=note>真题 '+esc(x.e)+' · '+XSEC[x.s]+'</span><br>'+xHtml(x),ctx:null,ans:x.o[x.a],ops:x.o.slice()};}
@@ -526,7 +550,7 @@ function vMake(c){
   if(t==='read'){q=(ctx?'句中的 <b>'+esc(wm)+'</b> 怎么读？<br>':'「'+esc(c.w)+'」怎么读？')+(ctx?head:'');ans=c.r;ops=readDist(c,3);}
   else{q=(ctx?'句中的 <b>'+esc(wm)+'</b> 是什么意思？<br>':'「'+esc(c.w)+'」（'+esc(c.r)+'）是什么意思？')+(ctx?head:'');ans=mFirst(c.m);ops=pick(c,'m',3).map(mFirst);}}
  else if(t==='kanji'){q='「'+esc(c.r)+'」用汉字怎么写？';ans=c.w;ops=pick(c,'w',3,function(o){return hasKanji(o.w)&&String(o.w).slice(-1)===String(c.w).slice(-1);});}
- else{var p=exParts(ex);ctx={jp:p.jp,zh:p.zh,say:exSay(c,p.jp),src:'例句'};q='选一个填进 ＿＿ ：<br>'+esc(p.jp).replace(/～/g,'＿＿');ans=c.w;ops=pick(c,'w',3,function(o){return o.w.slice(-1)===c.w.slice(-1);});}
+ else{var p=exParts(ex);ctx={jp:p.jp,zh:p.zh,say:exSay(c,p.jp),src:'例句'};q=esc(p.jp).replace(/～/g,'＿＿');ans=c.w;ops=pick(c,'w',3,function(o){return o.w.slice(-1)===c.w.slice(-1);});}
  ops=ops.filter(function(x,i){return x&&x!==ans&&ops.indexOf(x)===i;});
  return {c:c,t:t,q:q,ctx:ctx,ans:ans,ops:shuffle([ans].concat(ops))};
 }
@@ -654,8 +678,8 @@ function gPick(it,f,n){var pool=shuffle(gList().filter(function(o){return o!==it
 
 var GXIDX=null;
 function gxIdx(){if(GXIDX)return GXIDX;GXIDX={};(window.Q4GX||[]).forEach(function(x){if(x.g){(GXIDX[x.g]=GXIDX[x.g]||[]).push(x);}});return GXIDX;}
-function gxMake(x,it){var q=x.s===8?'<span class=note>真题 '+esc(x.e)+' · ★排序</span><br><span class=note>把四个选项排成通顺的句子，<b>★</b> 处应填哪个？</span><br>'+esc(x.q):'<span class=note>真题 '+esc(x.e)+' · 文法形式</span><br>'+esc(x.q).replace(/（　）/g,'＿＿');
- return {it:it,t:'exam',q:q,ans:x.o[x.a],say:null,pre:null,ops:x.o.slice()};}
+function gxMake(x,it){var q=x.s===8?'<span class=note>真题 '+esc(x.e)+' · ★排序</span><br><span class=note>把四个选项排成通顺的句子</span><div id=gsort style="margin-top:.5em"></div>':'<span class=note>真题 '+esc(x.e)+' · 文法形式</span><br>'+esc(x.q).replace(/（　）/g,'＿＿');
+ return {it:it,t:'exam',q:q,ans:x.o[x.a],say:null,pre:null,ops:x.o.slice(),sx:(x.s===8&&x.ord)?x:null};}
 function gMake(it,si){
  var xs=gxIdx()[it.n]||[];
  if(si===undefined&&xs.length&&Math.random()<.75)return gxMake(xs[Math.floor(Math.random()*xs.length)],it);
@@ -670,7 +694,7 @@ function gMake(it,si){
   ops=gPick(it,function(o){var x=o.s[Math.floor(Math.random()*o.s.length)];return gMeanOf(x.m);},3).filter(function(x){return x!==ans;});say_=e.jp;}
  else if(t==='pattern'){q='哪个语法表示「'+esc(gMeanOf(s.m))+'」？<br><span class=note>例：'+esc(e.zh)+'</span>';ans=it.g;
   ops=gPick(it,function(o){return o.g;},3).filter(function(x){return x!==ans;});}
- else{q='选一个填进 ＿＿ ：<br>'+esc(cz.e.jp.replace(cz.f,'＿＿'))+'<br><span class=note>'+esc(cz.e.zh)+'</span>';ans=it.g;
+ else{q=esc(cz.e.jp.replace(cz.f,'＿＿'))+'<br><span class=note>'+esc(cz.e.zh)+'</span>';ans=it.g;
   ops=gPick(it,function(o){return o.g;},3).filter(function(x){return x!==ans;});s=null;e=cz.e;}
  if(si!==undefined&&it.s.length>1)q='<span class=note>'+(t==='mean'?'「'+esc(it.g)+'」':'这个语法')+'有 '+it.s.length+' 个意思，本题考第 '+(si+1)+' 个</span><br>'+q;
  return {it:it,t:t,q:q,ans:ans,say:e.jp,pre:t==='mean'?e.jp:null,ops:shuffle([ans].concat(ops))};
@@ -693,10 +717,10 @@ function gQuiz(){
    $('#gnext2').onclick=gCard;setKeys(function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();gCard();}});return;}
   var x=qs[i];x.t0=Date.now();
   render('<p class=note>小测 '+(i+1)+' / '+qs.length+'</p><div class=hero><div style="font-size:1.15em;line-height:1.9">'+x.q+(x.pre?' '+spk(x.pre):'')+'</div></div>'+
-   x.ops.map(function(o,k){return '<p><button class="btn gop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join('')+'<div id=gres></div>');
+   (x.sx?'':x.ops.map(function(o,k){return '<p><button class="btn gop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join(''))+'<div id=gres></div>');
   ttsBind();
   var done=false;
-  function choose(k){if(done)return;done=true;var good=x.ops[k]===x.ans,it=x.it,p=Object.assign({},gget(it));x.right=good;x.ms=Date.now()-x.t0;
+  function choose(k,g2,pre){if(done)return;done=true;var good=k>=0?x.ops[k]===x.ans:g2,it=x.it,p=Object.assign({},gget(it));x.right=good;x.ms=Date.now()-x.t0;
    if(good)ok++;var nxt;
    if(!x.last){nxt='这个语法还有 '+x.grp.filter(function(y){return y.right===undefined;}).length+' 道题';}
    else{var allok=x.grp.every(function(y){return y.right;}),ms=x.grp.reduce(function(a,y){return a+(y.ms||0);},0)+(Date.now()-x.t0);
@@ -704,11 +728,12 @@ function gQuiz(){
     p.bad=allok?0:1;if(Q.plan&&GP.plan)p.wk=GP.plan.week;if(Q.review&&GP.plan){GP.plan.rv=GP.plan.rv||{};GP.plan.rv[dayNum()]=(GP.plan.rv[dayNum()]||0)+1;}
     GP.c[it.n]=p;gSave();}
    var bs=document.querySelectorAll('.gop');for(var j=0;j<bs.length;j++){bs[j].disabled=true;if(x.ops[j]===x.ans)bs[j].className+=' good';else if(j===k)bs[j].className+=' bad';}
-   $('#gres').innerHTML='<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(x.ans))+'</b> <span class=note>'+nxt+'</span></p><div class=hero style="text-align:left"><b>'+esc(it.g)+'</b>'+gBack(it)+'</div><p><button class="btn go" id=gnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
+   $('#gres').innerHTML=(pre?pre+'<p class=note>'+nxt+'</p>':'<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(x.ans))+'</b> <span class=note>'+nxt+'</span></p>')+'<div class=hero style="text-align:left"><b>'+esc(it.g)+'</b>'+gBack(it)+'</div><p><button class="btn go" id=gnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
    ttsBind();say(x.say);
    $('#gnq').onclick=function(){i++;show();};}
+  if(x.sx)sortUI(x.sx,$('#gsort'),function(g,r){choose(-1,g,r);});
   var bs=document.querySelectorAll('.gop');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){choose(+this.getAttribute('data-k'));};
-  setKeys(function(e){var n=parseInt(e.key,10);if(!done&&n>=1&&n<=x.ops.length)choose(n-1);else if(done&&(e.key==='Enter'||e.key===' ')){e.preventDefault();i++;show();}});
+  setKeys(function(e){var n=parseInt(e.key,10);if(!done&&!x.sx&&n>=1&&n<=x.ops.length)choose(n-1);else if(done&&(e.key==='Enter'||e.key===' ')){e.preventDefault();i++;show();}});
  }
  show();
 }
