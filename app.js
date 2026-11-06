@@ -244,7 +244,8 @@ function check(){
 
 /* ===== 背词（词表由你自己导入，只存在本机） ===== */
 var VKEY='q4vocab_v1',V=null;
-function vLoad(){try{V=JSON.parse(localStorage.getItem(VKEY));}catch(e){V=null;}if(!V||!V.cards)V={cards:[]};}
+function vLoad(){try{V=JSON.parse(localStorage.getItem(VKEY));}catch(e){V=null;}if(!V||!V.cards)V={cards:[]};
+ if(window.Q4V&&V.seed!==Q4V.ver){var r=vParse(Q4V.text);V.cards=V.cards.concat(r.add);V.seed=Q4V.ver;vSave();}}
 function vSave(){try{localStorage.setItem(VKEY,JSON.stringify(V));}catch(e){}}
 function vDue(){if(!V)vLoad();var t=dayNum();return V.cards.filter(function(c){return c.n&&c.due<=t;});}
 function vNew(){return V.cards.filter(function(c){return !c.n;});}
@@ -258,7 +259,7 @@ function vParse(t){var add=[],upd=0,idx={};V.cards.forEach(function(c){idx[c.w]=
 var VQ=null;
 function vocab(){
  setKeys(null);vLoad();var d=vDue().length,nw=vNew().length,tot=V.cards.length;
- var h='<h1>背词</h1><p class=note>词表由你自己导入，只保存在这台设备的浏览器里，不会上传。按「想→翻面→记住/没记住」背，每背 5 个词出 5 道小题检查；没记住或答错的词会很快再出现，记住的间隔越拉越长。</p>';
+ var h='<h1>背词</h1><p class=note>已内置高频词表，进度只保存在这台设备的浏览器里，不会上传；也可以在下面再导入自己的词表。按「想→翻面→记住/没记住」背，每背 5 个词出 5 道小题检查；没记住或答错的词会很快再出现，记住的间隔越拉越长。</p>';
  h+='<div class=hero><div class=trow><b>词库</b><span class=chip>共 '+tot+' 词</span></div><div class=kv><span>到期复习 <b>'+d+'</b></span><span>还没背过 <b>'+nw+'</b></span></div>'+
   '<div class=todo>'+(tot?'<a class="btn go" id=vgo href="#/vocab/go">开始背词（到期 + 新词最多 10 个）</a>':'<p class=note style="margin:0">词库是空的，先在下面导入。</p>')+'</div></div>';
  h+='<h2>导入词表</h2><p class=note>每行一个词，用 | 分隔：<b>单词 | 读音 | 意思 | 例句和讲解</b>（例句里的换行用 ¶ 表示）。只写前两三列也可以。已有的词会更新读音、意思和例句，背词进度保留。</p>'+
@@ -268,7 +269,7 @@ function vocab(){
  $('#vimp').onclick=function(){var r=vParse($('#vtx').value);if(!r.add.length&&!r.upd){$('#vmsg').textContent='没有读到词。';return;}V.cards=V.cards.concat(r.add);vSave();vocab();$('#vmsg').textContent='新增 '+r.add.length+' 个词，更新 '+r.upd+' 个。';};
  $('#vfile').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){$('#vtx').value=String(fr.result||'');$('#vimp').click();};fr.readAsText(f,'utf-8');};
  $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m,(c.x||'').replace(/\n/g,'¶')].join(' | ');}).join('\n');if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#vmsg').textContent='已复制 '+V.cards.length+' 个词到剪贴板。';});}else{$('#vtx').value=t;}};
- $('#vclr').onclick=function(){if(confirm('确定清空词库和背词进度？')){V={cards:[]};vSave();vocab();}};
+ $('#vclr').onclick=function(){if(confirm('确定清空词库和背词进度？')){V={cards:[],seed:window.Q4V?Q4V.ver:0};vSave();vocab();}};
 }
 function vocabGo(){
  vLoad();var q=shuffle(vDue()).concat(vNew().slice(0,10));
