@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v16 · 11-06 14:24';
+var APPV='v17 · 11-06 14:30';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -479,12 +479,23 @@ function readMut(r){var t1=[],t2=[],i,ch;
  /* 二档：相近假名 */
  for(i=0;i<r.length;i++){ch=r[i];if(CONF[ch])add(t2,r.slice(0,i)+CONF[ch]+r.slice(i+1));}
  return {t1:t1,t2:t2};}
-function readDist(c,n){
- var M=readMut(c.r),all={};V.cards.forEach(function(o){if(o.r)all[o.r]=1;});
- var f=function(a){return a.filter(function(x){return x.length>=2&&!all[x];});};
- var out=shuffle(f(M.t1)).slice(0,3);
- if(out.length<n)out=out.concat(shuffle(f(M.t2)).slice(0,n-out.length));
- if(out.length<n){var more=pick(c,'r',n-out.length,function(o){return Math.abs(o.r.length-c.r.length)<=1;});more.forEach(function(x){if(out.indexOf(x)<0)out.push(x);});}
+var RPOOL=null;
+function rPool(){if(RPOOL)return RPOOL;var m={};
+ V.cards.forEach(function(o){if(o.r&&!/[ァ-ヿ]/.test(o.r)&&o.r.indexOf('/')<0&&o.r.indexOf('・')<0)m[o.r]=1;});
+ (window.Q4X||[]).forEach(function(x){if(x.s===1)x.o.forEach(function(r){if(/^[ぁ-ん]{2,8}$/.test(r))m[r]=1;});});
+ RPOOL=Object.keys(m);return RPOOL;}
+function tailN(r,k){return r.slice(-k);}
+/* 读音干扰项：优先用“真实存在的词”，词尾假名相同、长度相近（和真题一样，如 なやんで/くやんで/うらんで/にくんで）；不够再用保持词尾的清浊/长短音变形 */
+function readDist(c,n){var r=c.r,out=[],P=rPool().filter(function(x){return x!==r;});
+ var k=Math.min(2,r.length-1);
+ var tiers=[
+  function(x){return tailN(x,k)===tailN(r,k)&&Math.abs(x.length-r.length)<=1;},
+  function(x){return tailN(x,1)===tailN(r,1)&&Math.abs(x.length-r.length)<=1;},
+  function(x){return tailN(x,1)===tailN(r,1)&&Math.abs(x.length-r.length)<=2;}];
+ for(var t=0;t<tiers.length&&out.length<n;t++){shuffle(P.filter(tiers[t])).forEach(function(x){if(out.length<n&&out.indexOf(x)<0)out.push(x);});}
+ /* 同汉字词的真题式变形（长短音/清浊），要求词尾不变，才像真题 */
+ if(out.length<n){var M=readMut(r),keep=function(x){return tailN(x,1)===tailN(r,1)&&out.indexOf(x)<0&&x.length>=2;};
+  shuffle(M.t1.filter(keep)).concat(shuffle(M.t2.filter(keep))).forEach(function(x){if(out.length<n)out.push(x);});}
  return out.slice(0,n);}
 /* 真题：把题库里和这个词对应的题找出来 */
 var XIDX=null;
