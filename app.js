@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v11 · 11-06 14:25';
+var APPV='v12 · 11-06 13:51';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -322,7 +322,7 @@ function vocabQuizGo(){
 var TKEY='q4tts_v1',TP={},TTSV=null;
 try{TP=JSON.parse(localStorage.getItem(TKEY))||{};}catch(e){TP={};}
 if(!TP.s)TP.s=.8;
-var VOICES=[['takehiro','玄野武宏（男声）']];
+var VOICES=[['gongitsune','Kokoro 日语女声']];
 function tpSave(){try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}}
 function curVoice(){for(var i=0;i<VOICES.length;i++)if(VOICES[i][0]===TP.vo)return TP.vo;return VOICES[0][0];}
 function loadVoice(v,cb){window.Q4TV=window.Q4TV||{};if(Q4TV[v]){if(cb)cb(true);return;}
@@ -661,7 +661,7 @@ function hub(){
   '<a class=card href="#/listen"><b>🎧 听力即时应答</b><span>真题 '+D.papers.length+' 套 · 已作答 '+st.n+' / '+st.total+' · 到期重听 '+wrongDue().length+'</span></a></div>';
  h+='<details class=more><summary>设置与数据</summary><h3 style="margin:10px 0 4px">进度备份</h3><p class=note style="margin:0 0 6px">包含听力作答记录、单词进度和语法进度；换设备时导出，再到新设备导入。</p>'+bkBox()+
   offBox('t','📥 离线语音（当前所选声音）','把当前声音的单词和例句语音存到本机，之后没有网络也能听。换声音后需要再下载一次。','下载全部语音')+
-  '<p class=note>语音合成：VOICEVOX（'+esc(VOICES.map(function(v){return v[1].replace(/（.*/,'');}).join(' / '))+'）。</p></details>';
+  '<p class=note>语音合成：Kokoro（'+esc(VOICES.map(function(v){return v[1].replace(/（.*/,'');}).join(' / '))+'）。</p></details>';
  render(h);
  bkBind(hub);
  loadVoice(curVoice(),function(){offInit('t',ttsList,'q4tts-'+curVoice(),'语音');});
