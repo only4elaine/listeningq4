@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v12 · 11-06 13:51';
+var APPV='v13 · 11-06 13:56';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -609,36 +609,37 @@ function planOrder(T,pl){var all=T.items(),keys=all.map(T.key);
  var pos={};pl.ord.forEach(function(k,i){pos[k]=i;});
  return all.slice().sort(function(a,b){var x=pos[T.key(a)],y=pos[T.key(b)];return (x===undefined?1e9:x)-(y===undefined?1e9:y);});}
 function planInfo(T){var pl=T.plan();if(!pl)return null;
- var t=dayNum(),items=planOrder(T,pl),total=items.length,per=Math.max(1,Math.ceil(total/7)),d=t-pl.start,over=d>=7,di=Math.max(0,Math.min(6,d)),cut=Math.min(total,(di+1)*per);
+ var t=dayNum(),items=planOrder(T,pl),total=items.length,per=Math.max(1,Math.ceil(total/7)),d=t-pl.start,over=d>=7,di=Math.max(0,Math.min(6,d)),ah=over?0:(pl.ah||0),cut=Math.min(total,(Math.min(6,di+ah)+1)*per);
  var done=items.filter(function(it){return T.p(it).wk===pl.week;}).length;
  var undone=items.slice(0,cut).filter(function(it){return T.p(it).wk!==pl.week;});
  var rq=planReviewQueue(T),rv=(pl.rv&&pl.rv[t])||0,nb=rq.filter(function(it){return T.p(it).bad;}).length;
  return {pl:pl,t:t,total:total,per:per,d:d,over:over,di:di,done:done,undone:undone,rq:rq,nb:nb,rv:rv,
-  learnDone:undone.length===0,revDone:rq.length===0||rv>=PCAP,checked:!!(pl.ck&&pl.ck[t])};}
+  learnDone:undone.length===0,ah:ah,canAhead:!over&&undone.length===0&&cut<total,revDone:rq.length===0||rv>=PCAP,checked:!!(pl.ck&&pl.ck[t])};}
 function planStreak(I){var n=0,t=I.t,ck=I.pl.ck||{};if(!ck[t])t--;while(ck[t]){n++;t--;}return n;}
 function planBrief(T){var I=planInfo(T);if(!I)return '尚未开始周计划';
  return '第 '+I.pl.week+' 周第 '+(I.over?7:I.di+1)+' 天 · 学习剩 '+I.undone.length+' · 复习 '+I.rq.length+' · '+(I.checked?'今日已打卡 ✓':'今日未打卡');}
 function planBox(T){var I=planInfo(T),n=T.items().length;
  if(!I)return '<div class=hero><div class=trow><b>📅 周计划</b></div><p class=note>一周为一轮：把全部 '+n+' '+T.unit+'平均分到 7 天，每天约 '+Math.ceil(n/7)+' '+T.unit+'，先翻卡再做选择题；每天还要完成复习（答错的 + 按遗忘曲线到期的），然后打卡。第 2 周起再来一轮，同样翻卡 + 选择题。</p><p><button class="btn go" id=pstart style="width:100%">开始本周计划（今天算第 1 天）</button></p></div>';
- var pl=I.pl,cal='',cut=Math.min(I.total,(I.di+1)*I.per),dayOf=I.over?7:I.di+1;
+ var pl=I.pl,cal='',cut=Math.min(I.total,(Math.min(6,I.di+I.ah)+1)*I.per),dayOf=I.over?7:I.di+1;
  for(var k=0;k<7;k++){var day=pl.start+k,ck=pl.ck&&pl.ck[day],cls=ck?'ok':(day<I.t?'miss':(day===I.t?'today':'')),tx=ck?'✓':(day<I.t?'✗':(day===I.t?'●':''));
   cal+='<div class="pd '+cls+'"><i>'+tx+'</i><small>第'+(k+1)+'天</small></div>';}
  var pct=Math.round(I.done/I.total*100),lDone=cut-I.undone.length,lPct=Math.round(lDone/Math.max(1,cut)*100),
   streak=planStreak(I),rvTotal=I.rq.length+I.rv,rPct=I.revDone?100:Math.round(I.rv/Math.max(1,rvTotal)*100),ready=I.learnDone&&I.revDone;
  var h='<div class="hero plan"><div class=ph><div><div class=pwk>第 '+pl.week+' 周</div><div class=pdy>第 '+dayOf+' / 7 天</div></div><div class=pstreak><span>🔥</span><small>连续打卡</small><b>'+streak+'</b><small>天</small></div></div>'+
   '<div class=pmain><div class=ring style="--p:'+pct+'"><div><b>'+pct+'<small>%</small></b><span>本周已学</span></div></div><div class=ptasks>'+
-  '<div class="ptask'+(I.learnDone?' done':'')+'"><div class=pti>'+(I.learnDone?'✓':'📘')+'</div><div class=ptb><div class=ptt>今日学习<em>'+(I.learnDone?'已完成':'还剩 '+I.undone.length+' '+T.unit)+'</em></div><div class=pbar><i style="width:'+lPct+'%"></i></div><small>累计目标：前 '+cut+' / '+I.total+'</small></div></div>'+
+  '<div class="ptask'+(I.learnDone?' done':'')+'"><div class=pti>'+(I.learnDone?'✓':'📘')+'</div><div class=ptb><div class=ptt>今日学习<em>'+(I.learnDone?'已完成':'还剩 '+I.undone.length+' '+T.unit)+'</em></div><div class=pbar><i style="width:'+lPct+'%"></i></div><small>累计目标：前 '+cut+' / '+I.total+(I.ah?'（已提前 '+I.ah+' 天）':'')+'</small></div></div>'+
   '<div class="ptask'+(I.revDone?' done':'')+'"><div class=pti>'+(I.revDone?'✓':'🔁')+'</div><div class=ptb><div class=ptt>今日复习<em>'+(I.revDone?'已完成':'待复习 '+I.rq.length+' 个')+'</em></div><div class=pbar><i style="width:'+rPct+'%"></i></div><small>'+(I.revDone?(I.rv?'今天已复习 '+I.rv+' 个':'暂时没有要复习的'):'错题 '+I.nb+' · 到期 '+(I.rq.length-I.nb))+'</small></div></div></div></div>'+
   '<div class=pweek>'+cal+'</div>';
  if(I.over)h+='<div class=pover><p>这一周的 7 天已经结束，完成 '+I.done+' / '+I.total+'。</p><button class="btn go" id=pnext>开始第 '+(pl.week+1)+' 周</button></div>';
- else h+='<div class=pbtns><button class="btn pb" id=plearn'+(I.learnDone?' disabled':'')+'>📘 今日学习</button><button class="btn pb" id=prev'+(I.rq.length?'':' disabled')+'>🔁 今日复习</button></div>'+
+ else h+='<div class=pbtns><button class="btn pb" id=plearn'+(I.learnDone?' disabled':'')+'>📘 今日学习</button><button class="btn pb" id=prev'+(I.rq.length?'':' disabled')+'>🔁 今日复习</button></div>'+(I.canAhead?'<button class="btn pb" id=pahead style="width:100%;margin-top:8px">⏩ 今天的学完了，提前学下一天（'+Math.min(I.per,I.total-cut)+' '+T.unit+'）</button>':'')+
   '<button class="pck'+(I.checked?' checked':(ready?' ready':''))+'" id=pck'+((ready&&!I.checked)?'':' disabled')+'><span class=pckm>'+(I.checked?'✓':'📌')+'</span><span>'+(I.checked?'今日已打卡':(ready?'今日打卡':'完成学习和复习后打卡'))+'</span></button>';
  return h+'</div>';}
 function planBind(T){var I=planInfo(T),b;
  if((b=$('#pstart')))b.onclick=function(){T.setPlan({start:dayNum(),week:1,ck:{},rv:{},ord:shuffle(T.items().map(T.key))});T.page();};
  if(!I)return;
- if((b=$('#pnext')))b.onclick=function(){var pl=T.plan();T.setPlan({start:dayNum(),week:pl.week+1,ck:pl.ck||{},rv:pl.rv||{},ord:shuffle(T.items().map(T.key))});T.page();};
+ if((b=$('#pnext')))b.onclick=function(){var pl=T.plan();T.setPlan({start:dayNum(),week:pl.week+1,ck:pl.ck||{},rv:pl.rv||{},ah:0,ord:shuffle(T.items().map(T.key))});T.page();};
  if((b=$('#plearn')))b.onclick=function(){T.learn(shuffle(planInfo(T).undone));};
+ if((b=$('#pahead')))b.onclick=function(){var pl=T.plan();pl.ah=(pl.ah||0)+1;T.setPlan(pl);T.learn(shuffle(planInfo(T).undone));};
  if((b=$('#prev')))b.onclick=function(){T.review();};
  if((b=$('#pck')))b.onclick=function(){var pl=T.plan();pl.ck=pl.ck||{};pl.ck[dayNum()]=1;T.setPlan(pl);T.page();};}
 var VT={key:function(c){return c.w;},name:'单词',unit:'个词',items:function(){if(!V)vLoad();return V.cards;},p:function(c){return c;},plan:function(){if(!V)vLoad();return V.plan;},setPlan:function(pl){V.plan=pl;vSave();},learn:function(l){vocabPlanLearn(l);},review:function(){vocabPlanReview();},page:function(){vocab();}};
