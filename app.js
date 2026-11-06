@@ -248,43 +248,89 @@ function vLoad(){try{V=JSON.parse(localStorage.getItem(VKEY));}catch(e){V=null;}
 function vSave(){try{localStorage.setItem(VKEY,JSON.stringify(V));}catch(e){}}
 function vDue(){if(!V)vLoad();var t=dayNum();return V.cards.filter(function(c){return c.n&&c.due<=t;});}
 function vNew(){return V.cards.filter(function(c){return !c.n;});}
-function vParse(t){var out=[],seen={};V.cards.forEach(function(c){seen[c.w]=1;});
- t.split(/\r?\n/).forEach(function(l){l=l.trim();if(!l)return;var a=l.split(/\t|\||｜|，|,|；|;/).map(function(x){return x.trim();}).filter(function(x,i){return x||i<3;});
-  if(!a[0]||seen[a[0]])return;seen[a[0]]=1;
-  if(a.length===2)a=[a[0],'',a[1]];
-  out.push({w:a[0],r:a[1]||'',m:a.slice(2).join('；'),n:0,box:0,due:0});});return out;}
+function vParse(t){var add=[],upd=0,idx={};V.cards.forEach(function(c){idx[c.w]=c;});
+ t.split(/\r?\n/).forEach(function(l){l=l.trim();if(!l)return;
+  var a=(/[|｜\t]/.test(l)?l.split(/\s*[|｜\t]\s*/):l.split(/[，,]/)).map(function(x){return x.trim();});
+  if(!a[0])return;if(a.length===2)a=[a[0],'',a[1]];
+  var o={w:a[0],r:a[1]||'',m:a[2]||'',x:(a[3]||'').replace(/¶/g,'\n')};
+  var ex=idx[o.w];if(ex){if(o.r)ex.r=o.r;if(o.m)ex.m=o.m;if(o.x)ex.x=o.x;upd++;return;}
+  o.n=0;o.box=0;o.due=0;idx[o.w]=o;add.push(o);});return {add:add,upd:upd};}
 var VQ=null;
 function vocab(){
  setKeys(null);vLoad();var d=vDue().length,nw=vNew().length,tot=V.cards.length;
- var h='<h1>背词</h1><p class=note>词表由你自己导入（比如自己整理的词、做错题时记下的词），只保存在这台设备的浏览器里，不会上传。按「想→翻面→记住/没记住」的方式背，没记住的会很快再出现，记住的间隔越拉越长。</p>';
+ var h='<h1>背词</h1><p class=note>词表由你自己导入，只保存在这台设备的浏览器里，不会上传。按「想→翻面→记住/没记住」背，每背 5 个词出 5 道小题检查；没记住或答错的词会很快再出现，记住的间隔越拉越长。</p>';
  h+='<div class=hero><div class=trow><b>词库</b><span class=chip>共 '+tot+' 词</span></div><div class=kv><span>到期复习 <b>'+d+'</b></span><span>还没背过 <b>'+nw+'</b></span></div>'+
   '<div class=todo>'+(tot?'<a class="btn go" id=vgo href="#/vocab/go">开始背词（到期 + 新词最多 10 个）</a>':'<p class=note style="margin:0">词库是空的，先在下面导入。</p>')+'</div></div>';
- h+='<h2>导入词表</h2><p class=note>每行一个词，用 | 或 逗号 或 Tab 分隔：<b>单词 | 读音 | 意思</b>。只有「单词 | 意思」也可以。已有的词会自动跳过。</p>'+
-  '<textarea id=vtx rows=7 style="width:100%;box-sizing:border-box" placeholder="例：&#10;譲る | ゆずる | 让；让给&#10;偏る | かたよる | 偏；不均衡"></textarea>'+
+ h+='<h2>导入词表</h2><p class=note>每行一个词，用 | 分隔：<b>单词 | 读音 | 意思 | 例句和讲解</b>（例句里的换行用 ¶ 表示）。只写前两三列也可以。已有的词会更新读音、意思和例句，背词进度保留。</p>'+
+  '<textarea id=vtx rows=7 style="width:100%;box-sizing:border-box" placeholder="例：&#10;譲る | ゆずる | 让；让给 | 席を～ （让座）"></textarea>'+
   '<p><button class="btn go" id=vimp>导入</button> <button class=btn id=vexp>导出词库</button> <button class="btn bad" id=vclr>清空词库</button></p><p id=vmsg class=note></p>';
  render(h);
- $('#vimp').onclick=function(){var a=vParse($('#vtx').value);if(!a.length){$('#vmsg').textContent='没有读到新词。';return;}V.cards=V.cards.concat(a);vSave();vocab();$('#vmsg').textContent='已导入 '+a.length+' 个词。';};
- $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m].join(' | ');}).join('\n');if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#vmsg').textContent='已复制 '+V.cards.length+' 个词到剪贴板。';});}else{$('#vtx').value=t;}};
- $('#vclr').onclick=function(){if(confirm('确定清空词库和背词进度？'))V={cards:[]},vSave(),vocab();};
+ $('#vimp').onclick=function(){var r=vParse($('#vtx').value);if(!r.add.length&&!r.upd){$('#vmsg').textContent='没有读到词。';return;}V.cards=V.cards.concat(r.add);vSave();vocab();$('#vmsg').textContent='新增 '+r.add.length+' 个词，更新 '+r.upd+' 个。';};
+ $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m,(c.x||'').replace(/\n/g,'¶')].join(' | ');}).join('\n');if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#vmsg').textContent='已复制 '+V.cards.length+' 个词到剪贴板。';});}else{$('#vtx').value=t;}};
+ $('#vclr').onclick=function(){if(confirm('确定清空词库和背词进度？')){V={cards:[]};vSave();vocab();}};
 }
 function vocabGo(){
  vLoad();var q=shuffle(vDue()).concat(vNew().slice(0,10));
  if(!q.length){render('<h1>今天背完了</h1><p class=note>没有到期的词，也没有新词了。</p><a class=btn href="#/vocab">返回</a>');return;}
- VQ={q:q,i:0,ok:0};vCard();
+ VQ={q:q,i:0,ok:0,batch:[],qz:0,qzok:0};vCard();
 }
+function vBack(c){var x=(c.x||'').split('\n').filter(Boolean).map(function(l){return '<div style="margin-top:4px;text-align:left;font-size:.92em;opacity:.9">'+esc(l)+'</div>';}).join('');
+ return (c.r&&c.r!==c.w?'<div style="font-size:1.3em">'+esc(c.r)+'</div>':'')+'<div style="margin-top:6px">'+esc(c.m)+'</div>'+x;}
 function vCard(){
- var Q=VQ;if(Q.i>=Q.q.length){setKeys(null);render('<h1>这一组完成</h1><p class=note>'+Q.q.length+' 个词，记住 '+Q.ok+' 个。</p><p><a class="btn go" href="#/vocab/go" id=again>再来一组</a> <a class=btn href="#/vocab">返回</a></p>');return;}
+ var Q=VQ;
+ if(Q.i>=Q.q.length){if(Q.batch.length){vQuiz();return;}
+  setKeys(null);render('<h1>这一组完成</h1><p class=note>'+Q.q.length+' 个词，记住 '+Q.ok+' 个'+(Q.qz?'；小题答对 '+Q.qzok+' / '+Q.qz:'')+'。</p><p><a class="btn go" href="#/vocab/go">再来一组</a> <a class=btn href="#/vocab">返回</a></p>');return;}
  var c=Q.q[Q.i],shown=false;
  render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(c.n?'':' · 新词')+'</p><div class=hero style="text-align:center"><div style="font-size:2.2em;margin:18px 0">'+esc(c.w)+'</div><div id=vback style="min-height:72px"></div></div>'+
   '<p id=vrow><button class="btn go" id=vflip style="width:100%">翻面（空格）</button></p>');
- function flip(){if(shown)return;shown=true;$('#vback').innerHTML=(c.r?'<div style="font-size:1.3em">'+esc(c.r)+'</div>':'')+'<div style="margin-top:6px">'+esc(c.m)+'</div>';
+ function flip(){if(shown)return;shown=true;$('#vback').innerHTML=vBack(c);
   $('#vrow').innerHTML='<div class=rrow><button class="btn good" id=vok>记住了</button><button class="btn bad" id=vno>没记住</button></div>';
   $('#vok').onclick=function(){rate(true);};$('#vno').onclick=function(){rate(false);};}
  function rate(ok){var t=dayNum();if(ok){c.box=c.n?Math.min(c.box+1,INT.length):1;Q.ok++;}else{c.box=0;}
   c.n=1;c.due=t+(ok?INT[Math.min(c.box-1,INT.length-1)]:0);if(!ok){Q.q.push(c);}
-  var all=V.cards;vSave();Q.i++;vCard();}
+  if(Q.batch.indexOf(c)<0)Q.batch.push(c);
+  vSave();Q.i++;if(Q.batch.length>=5||Q.i>=Q.q.length)vQuiz();else vCard();}
  $('#vflip').onclick=flip;
  setKeys(function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!shown)flip();}else if(shown&&(e.key==='1'||e.key==='ArrowRight')){$('#vok').click();}else if(shown&&(e.key==='2'||e.key==='ArrowLeft')){$('#vno').click();}});
+}
+/* —— 每 5 个词的小测：读音 / 意思 / 汉字 / 例句填空 —— */
+function hasKanji(w){return /[一-鿿]/.test(w);}
+function pick(c,key,n,same){var pool=V.cards.filter(function(o){return o!==c&&o[key]&&o[key]!==c[key]&&(!same||same(o));});
+ if(pool.length<n)pool=V.cards.filter(function(o){return o!==c&&o[key]&&o[key]!==c[key];});
+ return shuffle(pool).slice(0,n).map(function(o){return o[key];});}
+function vMake(c){
+ var T=['read','mean'];if(hasKanji(c.w)&&c.r&&c.r!==c.w)T.push('kanji');
+ var ex=(c.x||'').split('\n').filter(function(l){return l.indexOf('～')>=0;})[0];if(ex)T.push('cloze','cloze');
+ var t=T[Math.floor(Math.random()*T.length)],last=function(k){return function(o){return String(o[k]).slice(-1)===String(c[k]).slice(-1);};};
+ var q,ans,ops;
+ if(t==='read'){q='「'+c.w+'」怎么读？';ans=c.r;ops=pick(c,'r',3,last('r'));}
+ else if(t==='mean'){q='「'+c.w+'」（'+c.r+'）是什么意思？';var f=function(m){return m.replace(/[①②③④⑤⑥⑦⑧⑨]/g,'').split(/[；]/)[0].trim();};
+  ans=f(c.m);ops=pick(c,'m',3).map(f);}
+ else if(t==='kanji'){q='「'+c.r+'」用汉字怎么写？';ans=c.w;ops=pick(c,'w',3,function(o){return hasKanji(o.w)&&String(o.w).slice(-1)===String(c.w).slice(-1);});}
+ else{q='选一个填进 ～ ：<br><b>'+esc(ex.replace(/\s*[（(][^）)]*[）)]\s*$/,''))+'</b><br><span class=note>'+esc((ex.match(/[（(]([^）)]*)[）)]\s*$/)||[,''])[1])+'</span>';ans=c.w;ops=pick(c,'w',3,function(o){return o.w.slice(-1)===c.w.slice(-1);});}
+ ops=ops.filter(function(x,i){return x&&x!==ans&&ops.indexOf(x)===i;});
+ return {c:c,q:q,html:t==='cloze',ans:ans,ops:shuffle([ans].concat(ops))};
+}
+function vQuiz(){
+ var Q=VQ;if(V.cards.length<2){Q.batch=[];vCard();return;}
+ var qs=Q.batch.map(vMake),i=0,ok=0;Q.batch=[];
+ function show(){
+  if(i>=qs.length){Q.qz+=qs.length;Q.qzok+=ok;setKeys(null);vSave();
+   render('<h1>小测 '+ok+' / '+qs.length+'</h1>'+qs.filter(function(x){return !x.right;}).map(function(x){return '<div class=hero style="text-align:left"><b>'+esc(x.c.w)+'</b>'+vBack(x.c)+'</div>';}).join('')+(ok<qs.length?'<p class=note>答错的词已加入马上重背。</p>':'')+'<p><button class="btn go" id=vnext2>继续背词 →</button></p>');
+   $('#vnext2').onclick=vCard;setKeys(function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();vCard();}});return;}
+  var x=qs[i];
+  render('<p class=note>小测 '+(i+1)+' / '+qs.length+'</p><div class=hero><div style="font-size:1.15em;line-height:1.7">'+(x.html?x.q:esc(x.q))+'</div></div>'+
+   x.ops.map(function(o,k){return '<p><button class="btn vop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join('')+'<div id=vres></div>');
+  var done=false;
+  function choose(k){if(done)return;done=true;var good=x.ops[k]===x.ans;x.right=good;if(good)ok++;
+   else{x.c.box=0;x.c.due=dayNum();}
+   var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++){bs[j].disabled=true;if(x.ops[j]===x.ans)bs[j].className+=' good';else if(j===k)bs[j].className+=' bad';}
+   $('#vres').innerHTML='<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(x.ans))+'</b></p><div class=hero style="text-align:left"><b>'+esc(x.c.w)+'</b>'+vBack(x.c)+'</div><p><button class="btn go" id=vnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
+   $('#vnq').onclick=function(){i++;show();};vSave();}
+  var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){choose(+this.getAttribute('data-k'));};
+  setKeys(function(e){var n=parseInt(e.key,10);if(!done&&n>=1&&n<=x.ops.length)choose(n-1);else if(done&&(e.key==='Enter'||e.key===' ')){e.preventDefault();i++;show();}});
+ }
+ show();
 }
 
 /* ===== 路由 ===== */
