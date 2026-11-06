@@ -47,6 +47,7 @@ function home(){
   '<div class=todo><p style="margin:0 0 8px">'+(due?'有 <b>'+due+'</b> 题到期要重听':'今天没有到期的重听')+'（错题/没听懂共 '+open+' 题）</p>'+
   '<a class="btn go" href="#/drill/rand">🎯 随机一组（'+GROUP+' 题，和真题一样）</a>'+
   (due?'<a class="btn go" style="margin-top:8px" href="#/drill/due">🔁 先练到期重听（'+due+'）</a>':'')+'</div></div>';
+ h+='<div class=hero id=offbox><div class=trow><b>📥 离线录音</b><span class=chip id=offchip>检查中…</span></div><p class=note style="margin:6px 0 8px">把全部录音存到本机，之后没有网络也能练（约 25 MB，只需下载一次）。</p><div id=offbar class=obar style="display:none"><i></i></div><p><button class="btn go" id=offbtn>下载全部录音</button> <button class=btn id=offdel style="display:none">清除离线录音</button></p><p id=offmsg class=note></p></div>';
  h+='<h2>按卷子练习</h2><div class=grid>';
  PLIST.forEach(function(p){var a=0,o=0;p.clips.forEach(function(c){var l=S.log[c.key];if(l){a++;if(l.ok)o++;}});
   h+='<a class=card href="#/paper/'+p.id+'"><b>'+esc(p.name)+'</b><span>已练 '+a+' / '+p.clips.length+(a?' · 答对 '+o:'')+'</span></a>';});
@@ -56,9 +57,34 @@ function home(){
   '<p><label><input type=checkbox id=once '+(S.prefs.once?'checked':'')+' style="width:auto"> 真题模式：题目只播放一遍（答题前不能重听）</label></p>'+
   '<p><button class=btn id=exp>导出进度</button> <button class="btn bad" id=rst>清除全部进度</button></p><p id=msg class=note></p></details>';
  render(h);
+ offInit();
  $('#once').onchange=function(){S.prefs.once=this.checked;save();};
  $('#exp').onclick=function(){var t=JSON.stringify(S);if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#msg').textContent='已复制到剪贴板（'+t.length+' 字符）';});}else{$('#msg').textContent=t;}};
  $('#rst').onclick=function(){if(confirm('确定清除全部作答记录和重听列表？')){S.log={};S.wrong={};save();home();}};
+}
+
+/* ===== 离线录音 ===== */
+var OFFC='q4audio-v1',OFFBUSY=false;
+function allAudio(){var r=[];D.papers.forEach(function(p){p.clips.forEach(function(c){r.push(c.f);});});return r;}
+function offCount(){if(!window.caches)return Promise.resolve(-1);return caches.open(OFFC).then(function(c){return Promise.all(allAudio().map(function(f){return c.match(f);}));}).then(function(a){return a.filter(Boolean).length;});}
+function offInit(){
+ var chip=$('#offchip'),btn=$('#offbtn'),del=$('#offdel'),msg=$('#offmsg');if(!chip)return;
+ if(!window.caches||location.protocol.indexOf('http')!==0){chip.textContent='不支持';btn.style.display='none';msg.textContent='当前浏览器或打开方式不支持离线存储（需通过网址访问）。';return;}
+ function refresh(){offCount().then(function(n){var t=allAudio().length;if(!$('#offchip'))return;
+  chip.textContent=n>=t?'已全部下载':n+' / '+t;btn.textContent=n>=t?'重新检查':(n?'继续下载（剩 '+(t-n)+' 个）':'下载全部录音');
+  del.style.display=n>0?'':'none';});}
+ refresh();
+ btn.onclick=function(){if(OFFBUSY)return;OFFBUSY=true;btn.disabled=true;msg.textContent='';
+  var bar=$('#offbar');bar.style.display='';var fill=bar.firstChild;
+  caches.open(OFFC).then(function(c){var L=allAudio(),done=0,fail=0,i=0;
+   function tick(){fill.style.width=Math.round(done/L.length*100)+'%';chip.textContent='下载中 '+done+' / '+L.length;}
+   function one(){if(i>=L.length)return Promise.resolve();var f=L[i++];
+    return c.match(f).then(function(m){if(m)return;return fetch(f).then(function(r){if(!r.ok||r.status!==200)throw 0;return c.put(f,r);});}).catch(function(){fail++;}).then(function(){done++;tick();return one();});}
+   tick();
+   return Promise.all([one(),one(),one(),one()]).then(function(){OFFBUSY=false;btn.disabled=false;bar.style.display='none';
+    msg.textContent=fail?('有 '+fail+' 个没下载成功（网络问题），可再点一次继续。'):'完成。之后没有网络也能听录音；页面本身也已缓存。';refresh();});
+  }).catch(function(e){OFFBUSY=false;btn.disabled=false;msg.textContent='下载失败：'+e;});};
+ del.onclick=function(){if(confirm('清除已下载的离线录音？（不影响作答记录）'))caches.delete(OFFC).then(function(){msg.textContent='已清除。';refresh();});};
 }
 
 /* ===== 卷子页 ===== */
