@@ -37,6 +37,21 @@ var KEYH=null;
 function setKeys(f){KEYH=f;}
 document.addEventListener('keydown',function(e){if(KEYH&&!e.metaKey&&!e.ctrlKey&&!e.altKey)KEYH(e);});
 
+/* ===== 进度备份：导出 / 导入（听力进度 + 背词进度，一个 JSON 文件） ===== */
+function bkExport(msgEl){
+ vLoad();var t=JSON.stringify({app:'q4',ver:1,time:new Date().toISOString(),S:S,V:V}),d=new Date(),
+  nm='q4-进度-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.json';
+ try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'application/json'}));a.download=nm;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);msgEl.textContent='已导出：'+nm+'（含听力进度和背词进度）';}
+ catch(e){if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){msgEl.textContent='下载失败，已改为复制到剪贴板。';});}else{msgEl.textContent='导出失败。';}}
+}
+function bkImport(file,msgEl,done){
+ var fr=new FileReader();fr.onload=function(){var o;try{o=JSON.parse(String(fr.result||''));}catch(e){}
+  if(!o||o.app!=='q4'||!o.S||!o.V||!o.V.cards){msgEl.textContent='这不是有效的进度文件。';return;}
+  if(!confirm('导入会用文件里的进度覆盖这台设备上的听力进度和背词进度，确定吗？\n（文件时间：'+(o.time||'未知')+'）'))return;
+  S=o.S;S.log=S.log||{};S.wrong=S.wrong||{};S.prefs=S.prefs||{};save();V=o.V;vSave();msgEl.textContent='导入完成。';done();};
+ fr.readAsText(file,'utf-8');
+}
 /* ===== 首页 ===== */
 function home(){
  setKeys(null);
@@ -55,11 +70,12 @@ function home(){
  if(D.missing&&D.missing.length){h+='<h2>暂缺</h2>';D.missing.forEach(function(m){h+='<p class=note>· '+esc(m.name)+'：'+esc(m.why)+'</p>';});}
  h+='<details class=more><summary>设置与数据</summary>'+
   '<p><label><input type=checkbox id=once '+(S.prefs.once?'checked':'')+' style="width:auto"> 真题模式：题目只播放一遍（答题前不能重听）</label></p>'+
-  '<p><button class=btn id=exp>导出进度</button> <button class="btn bad" id=rst>清除全部进度</button></p><p id=msg class=note></p></details>';
+  '<p><button class=btn id=exp>导出进度</button> <label class=btn style="display:inline-block;cursor:pointer">导入进度<input type=file id=imp accept=".json,application/json" style="display:none"></label> <button class="btn bad" id=rst>清除全部进度</button></p><p class=note style="margin:0">导出的文件包含听力作答记录和背词进度，换手机/电脑时导入即可。</p><p id=msg class=note></p></details>';
  render(h);
  offInit();
  $('#once').onchange=function(){S.prefs.once=this.checked;save();};
- $('#exp').onclick=function(){var t=JSON.stringify(S);if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#msg').textContent='已复制到剪贴板（'+t.length+' 字符）';});}else{$('#msg').textContent=t;}};
+ $('#exp').onclick=function(){bkExport($('#msg'));};
+ $('#imp').onchange=function(){if(this.files[0])bkImport(this.files[0],$('#msg'),home);};
  $('#rst').onclick=function(){if(confirm('确定清除全部作答记录和重听列表？')){S.log={};S.wrong={};save();home();}};
 }
 
@@ -264,8 +280,11 @@ function vocab(){
   '<div class=todo>'+(tot?'<a class="btn go" id=vgo href="#/vocab/go">开始背词（到期 + 新词最多 10 个）</a>':'<p class=note style="margin:0">词库是空的，先在下面导入。</p>')+'</div></div>';
  h+='<h2>导入词表</h2><p class=note>每行一个词，用 | 分隔：<b>单词 | 读音 | 意思 | 例句和讲解</b>（例句里的换行用 ¶ 表示）。只写前两三列也可以。已有的词会更新读音、意思和例句，背词进度保留。</p>'+
   '<textarea id=vtx rows=7 style="width:100%;box-sizing:border-box" placeholder="例：&#10;譲る | ゆずる | 让；让给 | 席を～ （让座）"></textarea>'+
-  '<p><label class="btn go" style="display:inline-block;cursor:pointer">选择词表文件（.txt）<input type=file id=vfile accept=".txt,text/plain" style="display:none"></label></p><p><button class="btn go" id=vimp>导入</button> <button class=btn id=vexp>导出词库</button> <button class="btn bad" id=vclr>清空词库</button></p><p id=vmsg class=note></p>';
+  '<p><label class="btn go" style="display:inline-block;cursor:pointer">选择词表文件（.txt）<input type=file id=vfile accept=".txt,text/plain" style="display:none"></label></p><p><button class="btn go" id=vimp>导入</button> <button class=btn id=vexp>复制词库文本</button> <button class="btn bad" id=vclr>清空词库</button></p><p id=vmsg class=note></p>'+
+  '<h2>背词进度备份</h2><p class=note>把听力和背词的进度导出成文件，换设备或清缓存前先备份；导入会覆盖当前进度。</p><p><button class="btn go" id=bkx>导出进度（文件）</button> <label class=btn style="display:inline-block;cursor:pointer">导入进度<input type=file id=bki accept=".json,application/json" style="display:none"></label></p><p id=bkm class=note></p>';
  render(h);
+ $('#bkx').onclick=function(){bkExport($('#bkm'));};
+ $('#bki').onchange=function(){if(this.files[0])bkImport(this.files[0],$('#bkm'),vocab);};
  $('#vimp').onclick=function(){var r=vParse($('#vtx').value);if(!r.add.length&&!r.upd){$('#vmsg').textContent='没有读到词。';return;}V.cards=V.cards.concat(r.add);vSave();vocab();$('#vmsg').textContent='新增 '+r.add.length+' 个词，更新 '+r.upd+' 个。';};
  $('#vfile').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){$('#vtx').value=String(fr.result||'');$('#vimp').click();};fr.readAsText(f,'utf-8');};
  $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m,(c.x||'').replace(/\n/g,'¶')].join(' | ');}).join('\n');if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#vmsg').textContent='已复制 '+V.cards.length+' 个词到剪贴板。';});}else{$('#vtx').value=t;}};
