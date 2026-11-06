@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v14 · 11-06 13:58';
+var APPV='v15 · 11-06 13:58';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -321,7 +321,8 @@ function vocabQuizGo(){
 /* ===== 朗读：预合成神经网络语音（可选声音、可调语速），没有的才用设备自带语音 ===== */
 var TKEY='q4tts_v1',TP={},TTSV=null;
 try{TP=JSON.parse(localStorage.getItem(TKEY))||{};}catch(e){TP={};}
-if(!TP.s)TP.s=.8;
+if(TP.sv!==2){TP.s=1;TP.sv=2;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}}
+if(!TP.s)TP.s=1;
 var VOICES=[['gongitsune','Kokoro 日语女声']];
 function tpSave(){try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}}
 function curVoice(){for(var i=0;i<VOICES.length;i++)if(VOICES[i][0]===TP.vo)return TP.vo;return VOICES[0][0];}
@@ -340,12 +341,12 @@ function audioBlocked(){var el=document.getElementById('audtoast');if(!el){el=do
 function audioUnlock(){if(AUOK)return;AUOK=true;try{if(!AU)AU=new Audio();AU.src=SILENT;var p=AU.play();if(p&&p.then)p.then(function(){if(AU.src===SILENT)AU.pause();}).catch(function(){AUOK=false;});}catch(e){AUOK=false;}}
 ['touchend','pointerdown','click','keydown'].forEach(function(ev){document.addEventListener(ev,audioUnlock,{passive:true,capture:true});});
 
-function browserSay(t,cb){if(!window.speechSynthesis||!t){if(cb)cb();return;}try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.s||.8;u.onend=function(){if(cb)cb();};u.onerror=function(){if(cb)cb();};speechSynthesis.speak(u);}catch(e){if(cb)cb();}}
+function browserSay(t,cb){if(!window.speechSynthesis||!t){if(cb)cb();return;}try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.s||1;u.onend=function(){if(cb)cb();};u.onerror=function(){if(cb)cb();};speechSynthesis.speak(u);}catch(e){if(cb)cb();}}
 function sayOne(t,cb){if(!t){if(cb)cb();return;}var v=curVoice();
  var go=function(){var m=window.Q4TV&&Q4TV[v],f=m&&m[t];
   if(f){try{speechSynthesis.cancel();}catch(e){}
    if(!AU)AU=new Audio();AU.onended=null;AU.onerror=null;try{AU.pause();}catch(e){}
-   AU.defaultPlaybackRate=TP.s||.8;AU.src='tts/'+v+'/'+f;AU.playbackRate=TP.s||.8;try{AU.preservesPitch=true;AU.webkitPreservesPitch=true;}catch(e){}
+   AU.defaultPlaybackRate=TP.s||1;AU.src='tts/'+v+'/'+f;AU.playbackRate=TP.s||1;try{AU.preservesPitch=true;AU.webkitPreservesPitch=true;}catch(e){}
    AU.onended=function(){if(cb)cb();};AU.onerror=function(){if(cb)cb();};
    var pr=AU.play();if(pr&&pr.catch)pr.catch(function(err){if(err&&err.name==='NotAllowedError'){audioBlocked();if(cb)cb();}else browserSay(t,cb);});}
   else browserSay(t,cb);};
@@ -355,7 +356,7 @@ function say(t){QT++;sayOne(t);}
 function sayQ(list){var tok=++QT,i=0;list=list.filter(Boolean);
  (function next(){if(tok!==QT||i>=list.length)return;sayOne(list[i++],function(){if(tok===QT)setTimeout(next,350);});})();}
 function topBar(){
- var sp=[.6,.7,.8,.9,1].map(function(r){return '<option value="'+r+'"'+((TP.s||.8)===r?' selected':'')+'>'+r+'x</option>';}).join(''),
+ var sp=[.6,.7,.8,.9,1].map(function(r){return '<option value="'+r+'"'+((TP.s||1)===r?' selected':'')+'>'+r+'x</option>';}).join(''),
   vo=VOICES.map(function(v){return '<option value="'+v[0]+'"'+(curVoice()===v[0]?' selected':'')+'>'+esc(v[1])+'</option>';}).join('');
  return '<div class=ver>语速 <select id=spd>'+sp+'</select>'+(VOICES.length>1?'　声音 <select id=vsel>'+vo+'</select>':'')+'　<span>版本 '+APPV+'</span></div>';}
 function topBind(){var a=document.getElementById('spd'),b=document.getElementById('vsel');
