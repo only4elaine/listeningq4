@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v13 · 11-06 13:56';
+var APPV='v14 · 11-06 13:58';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -333,6 +333,13 @@ function vScore(v){var n=v.name||'';return (/natural|neural|online|premium|enhan
 function ttsInit(){TTSV=jaVoices().sort(function(a,b){return vScore(b)-vScore(a);})[0]||null;}
 if(window.speechSynthesis){ttsInit();try{speechSynthesis.onvoiceschanged=ttsInit;}catch(e){}}
 var AU=null,QT=0;
+/* iOS：音频必须在点击/触摸里“解锁”，否则 play() 被拒、没有声音 */
+var AUOK=false,SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+function audioBlocked(){var el=document.getElementById('audtoast');if(!el){el=document.createElement('div');el.id='audtoast';el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;max-width:86%;text-align:center';document.body.appendChild(el);}
+ el.textContent='🔇 浏览器拦截了自动播放：请点一下页面上的 🔊 按钮；同时检查手机没开静音模式、音量不为 0。';el.style.display='block';setTimeout(function(){el.style.display='none';},5000);}
+function audioUnlock(){if(AUOK)return;AUOK=true;try{if(!AU)AU=new Audio();AU.src=SILENT;var p=AU.play();if(p&&p.then)p.then(function(){if(AU.src===SILENT)AU.pause();}).catch(function(){AUOK=false;});}catch(e){AUOK=false;}}
+['touchend','pointerdown','click','keydown'].forEach(function(ev){document.addEventListener(ev,audioUnlock,{passive:true,capture:true});});
+
 function browserSay(t,cb){if(!window.speechSynthesis||!t){if(cb)cb();return;}try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.s||.8;u.onend=function(){if(cb)cb();};u.onerror=function(){if(cb)cb();};speechSynthesis.speak(u);}catch(e){if(cb)cb();}}
 function sayOne(t,cb){if(!t){if(cb)cb();return;}var v=curVoice();
  var go=function(){var m=window.Q4TV&&Q4TV[v],f=m&&m[t];
@@ -340,7 +347,7 @@ function sayOne(t,cb){if(!t){if(cb)cb();return;}var v=curVoice();
    if(!AU)AU=new Audio();AU.onended=null;AU.onerror=null;try{AU.pause();}catch(e){}
    AU.defaultPlaybackRate=TP.s||.8;AU.src='tts/'+v+'/'+f;AU.playbackRate=TP.s||.8;try{AU.preservesPitch=true;AU.webkitPreservesPitch=true;}catch(e){}
    AU.onended=function(){if(cb)cb();};AU.onerror=function(){if(cb)cb();};
-   var pr=AU.play();if(pr&&pr.catch)pr.catch(function(){browserSay(t,cb);});}
+   var pr=AU.play();if(pr&&pr.catch)pr.catch(function(err){if(err&&err.name==='NotAllowedError'){audioBlocked();if(cb)cb();}else browserSay(t,cb);});}
   else browserSay(t,cb);};
  if(window.Q4TV&&Q4TV[v])go();else loadVoice(v,go);}
 function say(t){QT++;sayOne(t);}
