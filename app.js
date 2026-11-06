@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v17 · 11-06 14:30';
+var APPV='v18 · 11-06 14:32';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -311,35 +311,42 @@ function vocabQuizSetup(){
  $('#qgo').onclick=function(){VQT=document.querySelector('input[name=qt]:checked').value;VQS=document.querySelector('input[name=qs]:checked').value;location.hash='#/vocab/quizgo';};
 }
 
-/* ===== 真题词汇练习：直接做历年 N2 文字・語彙真题（不计入周计划） ===== */
-var XSEL='all',XWRONG={};try{XWRONG=JSON.parse(localStorage.getItem('q4xwrong_v1'))||{};}catch(e){XWRONG={};}
+/* ===== 真题练习：词汇（文字・語彙）/ 语法（問題7・8）直接做历年 N2 真题（不计入周计划） ===== */
+var XM='v',XSEL='all',XWRONG={v:{},g:{}};
+try{var xw0=JSON.parse(localStorage.getItem('q4xwrong_v1'));if(xw0){if(xw0.v||xw0.g)XWRONG={v:xw0.v||{},g:xw0.g||{}};else XWRONG={v:xw0,g:{}};}}catch(e){}
 function xwSave(){try{localStorage.setItem('q4xwrong_v1',JSON.stringify(XWRONG));}catch(e){}}
-function examSetup(){
- setKeys(null);var X=window.Q4X||[],nw=Object.keys(XWRONG).length;
- var cnt={};X.forEach(function(x){cnt[x.s]=(cnt[x.s]||0)+1;});
+function XB(){return (XM==='g'?window.Q4GX:window.Q4X)||[];}
+function XS(s){return (XM==='g'?XSEC_G:XSEC)[s];}
+function XBACK(){return XM==='g'?'#/gram':'#/vocab';}
+function examSetup(m){
+ XM=m||XM;XSEL='all';setKeys(null);var X=XB(),W=XWRONG[XM],nw=Object.keys(W).length,cnt={};
+ X.forEach(function(x){cnt[x.s]=(cnt[x.s]||0)+1;});
  var opt=function(v,t,n){return '<p><label><input type=radio name=xs value='+v+' '+(XSEL===String(v)?'checked':'')+' style="width:auto"> '+t+'（'+n+' 题）</label></p>';};
- render('<h1>真题词汇练习</h1><p class=note>来自项目里的历年 N2 真题（共 '+X.length+' 题，'+Object.keys(X.reduce(function(a,x){a[x.e]=1;return a;},{})).length+' 套），每轮 10 题，选项就是真题原选项。</p>'+
-  '<h2>题型</h2>'+opt('all','全部题型',X.length)+opt(1,'汉字读音（问题1）',cnt[1]||0)+opt(2,'汉字书写（问题2）',cnt[2]||0)+opt(3,'接头/接尾词（问题3）',cnt[3]||0)+opt(4,'文脉规定（问题4）',cnt[4]||0)+opt(5,'近义替换（问题5）',cnt[5]||0)+
-  '<p><button class="btn go" id=xgo style="width:100%">开始</button></p>'+(nw?'<p><button class=btn id=xwr>只练做错过的真题（'+nw+'）</button></p>':'')+'<p><a class=btn href="#/vocab">返回</a></p>');
+ var exams=Object.keys(X.reduce(function(a,x){a[x.e]=1;return a;},{})).length,types;
+ if(XM==='g')types=opt('all','全部题型',X.length)+opt(7,'文法形式の判断（问题7）',cnt[7]||0)+opt(8,'★ 排序（问题8）',cnt[8]||0);
+ else types=opt('all','全部题型',X.length)+opt(1,'汉字读音（问题1）',cnt[1]||0)+opt(2,'汉字书写（问题2）',cnt[2]||0)+opt(3,'接头/接尾词（问题3）',cnt[3]||0)+opt(4,'文脉规定（问题4）',cnt[4]||0)+opt(5,'近义替换（问题5）',cnt[5]||0);
+ render('<h1>真题'+(XM==='g'?'语法':'词汇')+'练习</h1><p class=note>来自项目里的历年 N2 真题（共 '+X.length+' 题，'+exams+' 套），每轮 10 题，选项就是真题原选项。</p>'+
+  '<h2>题型</h2>'+types+'<p><button class="btn go" id=xgo style="width:100%">开始</button></p>'+(nw?'<p><button class=btn id=xwr>只练做错过的真题（'+nw+'）</button></p>':'')+'<p><a class=btn href="'+XBACK()+'">返回</a></p>');
  $('#xgo').onclick=function(){XSEL=document.querySelector('input[name=xs]:checked').value;examRun(false);};
  if($('#xwr'))$('#xwr').onclick=function(){examRun(true);};
 }
 function examRun(wrongOnly){
- var X=window.Q4X||[],pool=X.filter(function(x){return wrongOnly?XWRONG[x.id]:(XSEL==='all'||String(x.s)===XSEL);});
- if(!pool.length){render('<h1>没有题了</h1><a class=btn href="#/vocab/exam">返回</a>');return;}
+ var X=XB(),W=XWRONG[XM],pool=X.filter(function(x){return wrongOnly?W[x.id]:(XSEL==='all'||String(x.s)===XSEL);});
+ if(!pool.length){render('<h1>没有题了</h1><a class=btn href="'+XBACK()+'/exam">返回</a>');return;}
  var qs=shuffle(pool).slice(0,10).map(function(x){return {x:x,ops:x.o.slice(),ans:x.o[x.a]};}),i=0,ok=0;
  function show(){
   if(i>=qs.length){setKeys(null);var bad=qs.filter(function(q){return !q.right;});
    render('<h1>真题 '+ok+' / '+qs.length+'</h1>'+bad.map(function(q){return '<div class=hero style="text-align:left"><span class=note>'+esc(q.x.e)+'</span><br>'+xHtml(q.x)+'<br><b>答案：'+esc(q.ans)+'</b></div>';}).join('')+(bad.length?'':'<p class=note>全对！</p>')+
-    '<p>'+(bad.length?'<button class="btn go" id=xretry>错题再测 ('+bad.length+')</button> ':'')+'<button class="btn go" id=xagain>再来一轮</button> <a class=btn href="#/vocab/exam">换题型</a> <a class=btn href="#/vocab">返回</a></p>');
+    '<p>'+(bad.length?'<button class="btn go" id=xretry>错题再测 ('+bad.length+')</button> ':'')+'<button class="btn go" id=xagain>再来一轮</button> <a class=btn href="'+XBACK()+'/exam">换题型</a> <a class=btn href="'+XBACK()+'">返回</a></p>');
    if($('#xretry'))$('#xretry').onclick=function(){qs=bad.map(function(q){return {x:q.x,ops:q.ops,ans:q.ans};});i=0;ok=0;show();};
    $('#xagain').onclick=function(){examRun(wrongOnly);};return;}
   var q=qs[i],x=q.x,done=false;
-  render('<p class=note>真题 '+(i+1)+' / '+qs.length+' · '+esc(x.e)+' · '+XSEC[x.s]+'</p><div class=hero><div style="font-size:1.15em;line-height:1.8">'+xHtml(x)+'</div></div>'+
+  render('<p class=note>真题 '+(i+1)+' / '+qs.length+' · '+esc(x.e)+' · '+XS(x.s)+'</p><div class=hero><div style="font-size:1.15em;line-height:1.8">'+xHtml(x)+'</div></div>'+
    q.ops.map(function(o,k){return '<p><button class="btn vop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join('')+'<div id=vres></div>');
-  function choose(k){if(done)return;done=true;var good=q.ops[k]===q.ans;q.right=good;if(good){ok++;delete XWRONG[x.id];}else XWRONG[x.id]=1;xwSave();
+  function choose(k){if(done)return;done=true;var good=q.ops[k]===q.ans;q.right=good;if(good){ok++;delete XWRONG[XM][x.id];}else XWRONG[XM][x.id]=1;xwSave();
    var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++){bs[j].disabled=true;if(q.ops[j]===q.ans)bs[j].className+=' good';else if(j===k)bs[j].className+=' bad';}
-   var full=x.s===1||x.s===2||x.s===3?'':'',lk=x.v?'<p class=note>对应词库里的词：'+esc(x.v)+'</p>':'';
+   var lk=x.v?'<p class=note>对应词库里的词：'+esc(x.v)+'</p>':'';
+   if(x.g&&window.Q4G){var gi=window.Q4G.filter(function(g){return g.n===x.g;})[0];if(gi)lk='<p class=note>对应语法：'+esc(gi.g)+'</p>';}
    $('#vres').innerHTML='<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(q.ans))+'</b></p>'+lk+'<p><button class="btn go" id=vnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
    $('#vnq').onclick=function(){i++;show();};}
   var bs=document.querySelectorAll('.vop');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){choose(+this.getAttribute('data-k'));};
@@ -500,8 +507,8 @@ function readDist(c,n){var r=c.r,out=[],P=rPool().filter(function(x){return x!==
 /* 真题：把题库里和这个词对应的题找出来 */
 var XIDX=null;
 function xIdx(){if(XIDX)return XIDX;XIDX={};(window.Q4X||[]).forEach(function(x){if(x.v){(XIDX[x.v]=XIDX[x.v]||[]).push(x);}});return XIDX;}
-function xHtml(x){var q=esc(x.q);if(x.u){var u=esc(x.u);q=q.replace(u,'<u>'+u+'</u>');}return q;}
-var XSEC={1:'读音',2:'汉字',3:'接辞',4:'文脉',5:'近义'};
+function xHtml(x){var q=esc(x.q);if(x.s===8)return '<span class=note>把四个选项排成通顺的句子，<b>★</b> 处应填哪个？</span><br>'+q;if(x.s===7)return q.replace(/（　）/g,'＿＿');if(x.u){var u=esc(x.u);q=q.replace(u,'<u>'+u+'</u>');}return q;}
+var XSEC={1:'读音',2:'汉字',3:'接辞',4:'文脉',5:'近义'},XSEC_G={7:'文法形式',8:'★排序'};
 function xMake(x,c){return {c:c,t:'exam',x:x,q:'<span class=note>真题 '+esc(x.e)+' · '+XSEC[x.s]+'</span><br>'+xHtml(x),ctx:null,ans:x.o[x.a],ops:x.o.slice()};}
 function pick(c,key,n,same){var pool=V.cards.filter(function(o){return o!==c&&o[key]&&o[key]!==c[key]&&(!same||same(o));});
  if(pool.length<n)pool=V.cards.filter(function(o){return o!==c&&o[key]&&o[key]!==c[key];});
@@ -584,7 +591,7 @@ function gBack(it){var h='';
 function gram(){
  setKeys(null);gLoad();var d=gDue().length,nw=gNew().length,tot=gList().length;
  var h='<h1>语法背诵</h1><p class=note>N2 语法 200 句，每天按周计划学习 + 复习，🔊 可听例句。</p>';
- h+=planBox(GT)+'<div class=hero><div class=trow><b>自由练习</b><span class=chip>共 '+tot+' 条</span></div><p class=note style="margin:6px 0">不计入周计划的学习进度（单纯测验的结果仍会更新复习安排）。</p><div class=rrow><a class=btn href="#/gram/study">📖 单纯背诵</a><a class=btn href="#/gram/quiz">🎯 单纯测验</a></div></div>';
+ h+=planBox(GT)+'<div class=hero><div class=trow><b>自由练习</b><span class=chip>共 '+tot+' 条</span></div><p class=note style="margin:6px 0">不计入周计划的学习进度（单纯测验的结果仍会更新复习安排）。</p><div class=rrow><a class=btn href="#/gram/study">📖 单纯背诵</a><a class=btn href="#/gram/quiz">🎯 单纯测验</a><a class=btn href="#/gram/exam">📝 真题语法练习</a></div></div>';
  h+='<h2>全部语法</h2><details class=more><summary>展开查看 200 条（点开可看例句）</summary>'+
   gList().map(function(it){var p=gget(it);return '<details style="margin:6px 0"><summary><b>'+it.n+'. '+esc(it.g)+'</b>　<span class=note>'+esc(it.s.map(function(s){return gMeanOf(s.m);}).join(' / '))+(p.n?' · 已学':'')+'</span></summary>'+gBack(it)+'</details>';}).join('')+'</details>';
  render(h);planBind(GT);
@@ -639,16 +646,23 @@ function gForms(it){var out=[];it.g.split('/').forEach(function(part){part=part.
  var a=part.replace(/[(（][^)）]*[)）]/g,''),b=part.replace(/[()（）]/g,'');
  [b,a].forEach(function(x){if(x&&x.length>=2&&out.indexOf(x)<0)out.push(x);});});
  return out.sort(function(x,y){return y.length-x.length;});}
-function gClozeEx(it){var forms=gForms(it),r=[];
- it.s.forEach(function(s){s.ex.forEach(function(e){for(var k=0;k<forms.length;k++){if(e.jp.indexOf(forms[k])>=0){r.push({e:e,f:forms[k],m:s.m});break;}}});});
+function gClozeEx(it,si){var forms=gForms(it),r=[];
+ it.s.forEach(function(s,k){if(si!==undefined&&k!==si)return;s.ex.forEach(function(e){for(var k=0;k<forms.length;k++){if(e.jp.indexOf(forms[k])>=0){r.push({e:e,f:forms[k],m:s.m});break;}}});});
  return r.length?r[Math.floor(Math.random()*r.length)]:null;}
 function gPick(it,f,n){var pool=shuffle(gList().filter(function(o){return o!==it;})),out=[],seen={};
  for(var i=0;i<pool.length&&out.length<n;i++){var v=f(pool[i]);if(v&&!seen[v]){seen[v]=1;out.push(v);}}return out;}
-function gMake(it){
- var T=['mean','pattern'],cz=gClozeEx(it);if(cz)T.push('cloze','cloze');
+
+var GXIDX=null;
+function gxIdx(){if(GXIDX)return GXIDX;GXIDX={};(window.Q4GX||[]).forEach(function(x){if(x.g){(GXIDX[x.g]=GXIDX[x.g]||[]).push(x);}});return GXIDX;}
+function gxMake(x,it){var q=x.s===8?'<span class=note>真题 '+esc(x.e)+' · ★排序</span><br><span class=note>把四个选项排成通顺的句子，<b>★</b> 处应填哪个？</span><br>'+esc(x.q):'<span class=note>真题 '+esc(x.e)+' · 文法形式</span><br>'+esc(x.q).replace(/（　）/g,'＿＿');
+ return {it:it,t:'exam',q:q,ans:x.o[x.a],say:null,pre:null,ops:x.o.slice()};}
+function gMake(it,si){
+ var xs=gxIdx()[it.n]||[];
+ if(si===undefined&&xs.length&&Math.random()<.75)return gxMake(xs[Math.floor(Math.random()*xs.length)],it);
+ var T=['mean','pattern'],cz=gClozeEx(it,si);if(cz)T.push('cloze','cloze');
  var t=GQT==='all'||(GQT==='cloze'&&!cz)?T[Math.floor(Math.random()*T.length)]:GQT;
  if(t==='cloze'&&!cz)t='mean';
- var s=it.s[Math.floor(Math.random()*it.s.length)],e=s.ex[Math.floor(Math.random()*s.ex.length)];
+ var s=it.s[si!==undefined?si:Math.floor(Math.random()*it.s.length)],e=s.ex[Math.floor(Math.random()*s.ex.length)];
  var q,ans,ops,say_=null;
  if(t==='mean'){var f=gForms(it).filter(function(x){return e.jp.indexOf(x)>=0;})[0],jp=esc(e.jp);
   if(f)jp=jp.split(esc(f)).join('<b>'+esc(f)+'</b>');
@@ -658,13 +672,20 @@ function gMake(it){
   ops=gPick(it,function(o){return o.g;},3).filter(function(x){return x!==ans;});}
  else{q='选一个填进 ＿＿ ：<br>'+esc(cz.e.jp.replace(cz.f,'＿＿'))+'<br><span class=note>'+esc(cz.e.zh)+'</span>';ans=it.g;
   ops=gPick(it,function(o){return o.g;},3).filter(function(x){return x!==ans;});s=null;e=cz.e;}
+ if(si!==undefined&&it.s.length>1)q='<span class=note>'+(t==='mean'?'「'+esc(it.g)+'」':'这个语法')+'有 '+it.s.length+' 个意思，本题考第 '+(si+1)+' 个</span><br>'+q;
  return {it:it,t:t,q:q,ans:ans,say:e.jp,pre:t==='mean'?e.jp:null,ops:shuffle([ans].concat(ops))};
 }
 function gQuiz(){
- var Q=GQ,qs=Q.batch.map(gMake),i=0,ok=0;Q.batch=[];
+ var Q=GQ,qs=[],i=0,ok=0;
+ /* 一个语法有几个意思，小测就出几道题（每题考一个意思）；有对应真题的再加一道真题 */
+ Q.batch.forEach(function(it){var g=[];
+  if(it.s.length>1){it.s.forEach(function(s,k){g.push(gMake(it,k));});var xs=gxIdx()[it.n]||[];if(xs.length&&Math.random()<.5)g.push(gxMake(xs[Math.floor(Math.random()*xs.length)],it));}
+  else g.push(gMake(it));
+  g.forEach(function(x,k){x.grp=g;x.last=k===g.length-1;});qs=qs.concat(g);});
+ Q.batch=[];
  function show(){
   if(i>=qs.length){Q.qz+=qs.length;Q.qzok+=ok;Q.start=Q.i;setKeys(null);gSave();
-   var wrong=qs.filter(function(x){return !x.right;});
+   var wrong=qs.filter(function(x,k){return !x.right&&qs.findIndex(function(y){return y.it===x.it&&!y.right;})===k;});
    render('<h1>小测 '+ok+' / '+qs.length+'</h1>'+wrong.map(function(x){return '<div class=hero style="text-align:left"><b>'+esc(x.it.g)+'</b>'+gBack(x.it)+'</div>';}).join('')+(ok<qs.length?'<p class=note>答错的语法已加到队尾，马上重背，之后按自适应间隔再复习。</p>':'<p class=note>全对！</p>')+
     (Q.mode==='quiz'?'<p>'+(wrong.length?'<button class="btn go" id=gretry>错题再测 ('+wrong.length+')</button> ':'')+'<button class="btn go" id=gagain>'+(Q.review?'继续复习':'再来一轮')+'</button> '+(Q.review?'':'<a class=btn href="#/gram/quiz">换设置</a> ')+'<a class=btn href="#/gram">返回</a></p>':'<p><button class="btn go" id=gnext2>继续 →</button></p>'));
    ttsBind();
@@ -675,10 +696,13 @@ function gQuiz(){
    x.ops.map(function(o,k){return '<p><button class="btn gop" data-k="'+k+'" style="width:100%;text-align:left">'+(k+1)+'. '+esc(o)+'</button></p>';}).join('')+'<div id=gres></div>');
   ttsBind();
   var done=false;
-  function choose(k){if(done)return;done=true;var good=x.ops[k]===x.ans,it=x.it,p=Object.assign({},gget(it));x.right=good;
-   var nxt=sched(p,good,Date.now()-x.t0);if(good)ok++;else Q.q.push(it);
-   p.bad=good?0:1;if(Q.plan&&GP.plan)p.wk=GP.plan.week;if(Q.review&&GP.plan){GP.plan.rv=GP.plan.rv||{};GP.plan.rv[dayNum()]=(GP.plan.rv[dayNum()]||0)+1;}
-   GP.c[it.n]=p;gSave();
+  function choose(k){if(done)return;done=true;var good=x.ops[k]===x.ans,it=x.it,p=Object.assign({},gget(it));x.right=good;x.ms=Date.now()-x.t0;
+   if(good)ok++;var nxt;
+   if(!x.last){nxt='这个语法还有 '+x.grp.filter(function(y){return y.right===undefined;}).length+' 道题';}
+   else{var allok=x.grp.every(function(y){return y.right;}),ms=x.grp.reduce(function(a,y){return a+(y.ms||0);},0)+(Date.now()-x.t0);
+    nxt=sched(p,allok,ms/x.grp.length);if(!allok)Q.q.push(it);
+    p.bad=allok?0:1;if(Q.plan&&GP.plan)p.wk=GP.plan.week;if(Q.review&&GP.plan){GP.plan.rv=GP.plan.rv||{};GP.plan.rv[dayNum()]=(GP.plan.rv[dayNum()]||0)+1;}
+    GP.c[it.n]=p;gSave();}
    var bs=document.querySelectorAll('.gop');for(var j=0;j<bs.length;j++){bs[j].disabled=true;if(x.ops[j]===x.ans)bs[j].className+=' good';else if(j===k)bs[j].className+=' bad';}
    $('#gres').innerHTML='<p><b>'+(good?'答对了':'答错了，正确答案：'+esc(x.ans))+'</b> <span class=note>'+nxt+'</span></p><div class=hero style="text-align:left"><b>'+esc(it.g)+'</b>'+gBack(it)+'</div><p><button class="btn go" id=gnq>'+(i+1<qs.length?'下一题 →':'看结果')+'</button></p>';
    ttsBind();say(x.say);
@@ -768,9 +792,9 @@ function route(){
  else if(v==='drill'){startDrill(p[1],p[2]);}
  else if(v==='review'){DRILL=null;review();}
  else if(v==='check'){DRILL=null;check();}
- else if(v==='vocab'){DRILL=null;if(p[1]==='go')vocabGo();else if(p[1]==='study')vocabStudy();else if(p[1]==='quiz')vocabQuizSetup();else if(p[1]==='quizgo')vocabQuizGo();else if(p[1]==='exam')examSetup();else vocab();}
+ else if(v==='vocab'){DRILL=null;if(p[1]==='go')vocabGo();else if(p[1]==='study')vocabStudy();else if(p[1]==='quiz')vocabQuizSetup();else if(p[1]==='quizgo')vocabQuizGo();else if(p[1]==='exam')examSetup('v');else vocab();}
  else if(v==='listen'){DRILL=null;home();}
- else if(v==='gram'){DRILL=null;if(p[1]==='go')gGo();else if(p[1]==='study')gStudy();else if(p[1]==='quiz')gQuizSetup();else if(p[1]==='quizgo')gQuizGo();else gram();}
+ else if(v==='gram'){DRILL=null;if(p[1]==='go')gGo();else if(p[1]==='study')gStudy();else if(p[1]==='quiz')gQuizSetup();else if(p[1]==='quizgo')gQuizGo();else if(p[1]==='exam')examSetup('g');else gram();}
  else{DRILL=null;hub();}
 }
 load();loadVoice(curVoice());
