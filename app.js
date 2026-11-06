@@ -32,27 +32,28 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/vocab">📚 背词('+vDue().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v5 · 11-06 12:25';
-function render(h){stopAudio();try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+'<div class=ver>版本 '+APPV+'</div><main>'+h+'</main>';window.scrollTo(0,0);}
+var APPV='v6 · 11-06 12:40';
+function render(h){stopAudio();try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+'<div class=ver>版本 '+APPV+'</div><main>'+h+'</main>';window.scrollTo(0,0);}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
 document.addEventListener('keydown',function(e){if(KEYH&&!e.metaKey&&!e.ctrlKey&&!e.altKey)KEYH(e);});
 
-/* ===== 进度备份：导出 / 导入（听力进度 + 背词进度，一个 JSON 文件） ===== */
-function bkExport(msgEl){
- vLoad();var t=JSON.stringify({app:'q4',ver:1,time:new Date().toISOString(),S:S,V:V}),d=new Date(),
-  nm='q4-进度-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.json';
- try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'application/json'}));a.download=nm;document.body.appendChild(a);a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);msgEl.textContent='已导出：'+nm+'（含听力进度和背词进度）';}
- catch(e){if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){msgEl.textContent='下载失败，已改为复制到剪贴板。';});}else{msgEl.textContent='导出失败。';}}
-}
-function bkImport(file,msgEl,done){
- var fr=new FileReader();fr.onload=function(){var o;try{o=JSON.parse(String(fr.result||''));}catch(e){}
-  if(!o||o.app!=='q4'||!o.S||!o.V||!o.V.cards){msgEl.textContent='这不是有效的进度文件。';return;}
-  if(!confirm('导入会用文件里的进度覆盖这台设备上的听力进度和背词进度，确定吗？\n（文件时间：'+(o.time||'未知')+'）'))return;
-  S=o.S;S.log=S.log||{};S.wrong=S.wrong||{};S.prefs=S.prefs||{};save();V=o.V;vSave();msgEl.textContent='导入完成。';done();};
- fr.readAsText(file,'utf-8');
-}
+/* ===== 进度备份：导出 / 导入（听力进度 + 背词进度，一个 JSON；可文件，也可复制粘贴文本） ===== */
+function bkText(){vLoad();return JSON.stringify({app:'q4',ver:1,time:new Date().toISOString(),S:S,V:V});}
+function bkApply(txt,msgEl,done){var o;try{o=JSON.parse(String(txt||'').trim());}catch(e){}
+ if(!o||o.app!=='q4'||!o.S||!o.V||!o.V.cards){msgEl.textContent='这不是有效的进度内容。';return;}
+ if(!confirm('导入会用这份进度覆盖这台设备上的听力进度和背词进度，确定吗？\n（导出时间：'+(o.time||'未知')+'）'))return;
+ S=o.S;S.log=S.log||{};S.wrong=S.wrong||{};S.prefs=S.prefs||{};save();V=o.V;vSave();msgEl.textContent='导入完成。';done();}
+function bkBox(){return '<textarea id=bktx rows=4 style="width:100%;box-sizing:border-box" placeholder="点「导出到文本框」后进度文本会出现在这里，可复制保存；换设备时把文本粘贴到这里，再点「从文本框导入」"></textarea>'+
+ '<p><button class="btn go" id=bkx>导出进度（文件）</button> <button class=btn id=bkc>导出到文本框并复制</button></p>'+
+ '<p><label class=btn style="display:inline-block;cursor:pointer">从文件导入<input type=file id=bki accept=".json,application/json,text/plain" style="display:none"></label> <button class=btn id=bkt>从文本框导入</button></p><p id=bkm class=note></p>';}
+function dlFile(name,text,type){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);}
+function bkBind(done){var m=$('#bkm');
+ $('#bkx').onclick=function(){var d=new Date();try{dlFile('q4-进度-'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.json',bkText(),'application/json');m.textContent='已导出文件（含听力进度和背词进度）。';}catch(e){m.textContent='下载失败，请用「导出到文本框」。';}};
+ $('#bkc').onclick=function(){var t=bkText();$('#bktx').value=t;$('#bktx').select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}
+  if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){m.textContent='已复制到剪贴板，也在文本框里。';},function(){m.textContent=ok?'已复制。':'已放进文本框，请手动全选复制。';});}else{m.textContent=ok?'已复制。':'已放进文本框，请手动全选复制。';}};
+ $('#bki').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){bkApply(fr.result,m,done);};fr.readAsText(f,'utf-8');};
+ $('#bkt').onclick=function(){bkApply($('#bktx').value,m,done);};}
 /* ===== 首页 ===== */
 function home(){
  setKeys(null);
@@ -63,7 +64,7 @@ function home(){
   '<div class=todo><p style="margin:0 0 8px">'+(due?'有 <b>'+due+'</b> 题到期要重听':'今天没有到期的重听')+'（错题/没听懂共 '+open+' 题）</p>'+
   '<a class="btn go" href="#/drill/rand">🎯 随机一组（'+GROUP+' 题，和真题一样）</a>'+
   (due?'<a class="btn go" style="margin-top:8px" href="#/drill/due">🔁 先练到期重听（'+due+'）</a>':'')+'</div></div>';
- h+='<div class=hero id=offbox><div class=trow><b>📥 离线录音</b><span class=chip id=offchip>检查中…</span></div><p class=note style="margin:6px 0 8px">把全部录音存到本机，之后没有网络也能练（约 25 MB，只需下载一次）。</p><div id=offbar class=obar style="display:none"><i></i></div><p><button class="btn go" id=offbtn>下载全部录音</button> <button class=btn id=offdel style="display:none">清除离线录音</button></p><p id=offmsg class=note></p></div>';
+ h+=offBox('','📥 离线录音','把全部真题录音存到本机，之后没有网络也能练（约 25 MB，只需下载一次）。','下载全部录音');
  h+='<h2>按卷子练习</h2><div class=grid>';
  PLIST.forEach(function(p){var a=0,o=0;p.clips.forEach(function(c){var l=S.log[c.key];if(l){a++;if(l.ok)o++;}});
   h+='<a class=card href="#/paper/'+p.id+'"><b>'+esc(p.name)+'</b><span>已练 '+a+' / '+p.clips.length+(a?' · 答对 '+o:'')+'</span></a>';});
@@ -71,37 +72,39 @@ function home(){
  if(D.missing&&D.missing.length){h+='<h2>暂缺</h2>';D.missing.forEach(function(m){h+='<p class=note>· '+esc(m.name)+'：'+esc(m.why)+'</p>';});}
  h+='<details class=more><summary>设置与数据</summary>'+
   '<p><label><input type=checkbox id=once '+(S.prefs.once?'checked':'')+' style="width:auto"> 真题模式：题目只播放一遍（答题前不能重听）</label></p>'+
-  '<p><button class=btn id=exp>导出进度</button> <label class=btn style="display:inline-block;cursor:pointer">导入进度<input type=file id=imp accept=".json,application/json" style="display:none"></label> <button class="btn bad" id=rst>清除全部进度</button></p><p class=note style="margin:0">导出的文件包含听力作答记录和背词进度，换手机/电脑时导入即可。</p><p id=msg class=note></p></details>';
+  '<h3 style="margin:10px 0 4px">进度备份</h3><p class=note style="margin:0 0 6px">包含听力作答记录和背词进度；换设备时导出，再到新设备导入。</p>'+bkBox()+'<p><button class="btn bad" id=rst>清除全部进度</button></p></details>';
  render(h);
- offInit();
+ offInit('',allAudio,OFFC,'录音');
  $('#once').onchange=function(){S.prefs.once=this.checked;save();};
- $('#exp').onclick=function(){bkExport($('#msg'));};
- $('#imp').onchange=function(){if(this.files[0])bkImport(this.files[0],$('#msg'),home);};
+ bkBind(home);
  $('#rst').onclick=function(){if(confirm('确定清除全部作答记录和重听列表？')){S.log={};S.wrong={};save();home();}};
 }
 
-/* ===== 离线录音 ===== */
+/* ===== 离线录音 / 离线语音（同一套下载逻辑，按前缀区分） ===== */
 var OFFC='q4audio-v1',OFFBUSY=false;
 function allAudio(){var r=[];D.papers.forEach(function(p){p.clips.forEach(function(c){r.push(c.f);});});return r;}
-function offCount(){if(!window.caches)return Promise.resolve(-1);return caches.open(OFFC).then(function(c){return Promise.all(allAudio().map(function(f){return c.match(f);}));}).then(function(a){return a.filter(Boolean).length;});}
-function offInit(){
- var chip=$('#offchip'),btn=$('#offbtn'),del=$('#offdel'),msg=$('#offmsg');if(!chip)return;
+function ttsList(){var o={},r=[];if(window.Q4T)Object.keys(Q4T).forEach(function(k){var f='tts/'+Q4T[k];if(!o[f]){o[f]=1;r.push(f);}});return r;}
+function offBox(p,title,desc,btn){return '<div class=hero id='+p+'offbox><div class=trow><b>'+title+'</b><span class=chip id='+p+'offchip>检查中…</span></div><p class=note style="margin:6px 0 8px">'+desc+'</p><div id='+p+'offbar class=obar style="display:none"><i></i></div><p><button class="btn go" id='+p+'offbtn>'+btn+'</button> <button class=btn id='+p+'offdel style="display:none">清除离线内容</button></p><p id='+p+'offmsg class=note></p></div>';}
+function offInit(p,list,cn,noun){
+ p=p||'';list=list||allAudio;cn=cn||OFFC;noun=noun||'录音';
+ var chip=$('#'+p+'offchip'),btn=$('#'+p+'offbtn'),del=$('#'+p+'offdel'),msg=$('#'+p+'offmsg');if(!chip)return;
  if(!window.caches||location.protocol.indexOf('http')!==0){chip.textContent='不支持';btn.style.display='none';msg.textContent='当前浏览器或打开方式不支持离线存储（需通过网址访问）。';return;}
- function refresh(){offCount().then(function(n){var t=allAudio().length;if(!$('#offchip'))return;
-  chip.textContent=n>=t?'已全部下载':n+' / '+t;btn.textContent=n>=t?'重新检查':(n?'继续下载（剩 '+(t-n)+' 个）':'下载全部录音');
+ function cnt(){return caches.open(cn).then(function(c){return Promise.all(list().map(function(f){return c.match(f);}));}).then(function(a){return a.filter(Boolean).length;});}
+ function refresh(){cnt().then(function(n){var t=list().length;if(!$('#'+p+'offchip'))return;
+  chip.textContent=n>=t?'已全部下载':n+' / '+t;btn.textContent=n>=t?'重新检查':(n?'继续下载（剩 '+(t-n)+' 个）':'下载全部'+noun);
   del.style.display=n>0?'':'none';});}
  refresh();
  btn.onclick=function(){if(OFFBUSY)return;OFFBUSY=true;btn.disabled=true;msg.textContent='';
-  var bar=$('#offbar');bar.style.display='';var fill=bar.firstChild;
-  caches.open(OFFC).then(function(c){var L=allAudio(),done=0,fail=0,i=0;
+  var bar=$('#'+p+'offbar');bar.style.display='';var fill=bar.firstChild;
+  caches.open(cn).then(function(c){var L=list(),done=0,fail=0,i=0;
    function tick(){fill.style.width=Math.round(done/L.length*100)+'%';chip.textContent='下载中 '+done+' / '+L.length;}
    function one(){if(i>=L.length)return Promise.resolve();var f=L[i++];
     return c.match(f).then(function(m){if(m)return;return fetch(f).then(function(r){if(!r.ok||r.status!==200)throw 0;return c.put(f,r);});}).catch(function(){fail++;}).then(function(){done++;tick();return one();});}
    tick();
    return Promise.all([one(),one(),one(),one()]).then(function(){OFFBUSY=false;btn.disabled=false;bar.style.display='none';
-    msg.textContent=fail?('有 '+fail+' 个没下载成功（网络问题），可再点一次继续。'):'完成。之后没有网络也能听录音；页面本身也已缓存。';refresh();});
+    msg.textContent=fail?('有 '+fail+' 个没下载成功（网络问题），可再点一次继续。'):'完成。之后没有网络也能听'+noun+'；页面本身也已缓存。';refresh();});
   }).catch(function(e){OFFBUSY=false;btn.disabled=false;msg.textContent='下载失败：'+e;});};
- del.onclick=function(){if(confirm('清除已下载的离线录音？（不影响作答记录）'))caches.delete(OFFC).then(function(){msg.textContent='已清除。';refresh();});};
+ del.onclick=function(){if(confirm('清除已下载的离线'+noun+'？（不影响作答记录和背词进度）'))caches.delete(cn).then(function(){msg.textContent='已清除。';refresh();});};
 }
 
 /* ===== 卷子页 ===== */
@@ -278,25 +281,44 @@ function vocab(){
  setKeys(null);vLoad();var d=vDue().length,nw=vNew().length,tot=V.cards.length;
  var h='<h1>背词</h1><p class=note>已内置高频词表，进度只保存在这台设备的浏览器里，不会上传；也可以在下面再导入自己的词表。用「上一个 / 下一个」翻看单词（可点 🔊 听读音和例句），每看 5 个词出 5 道选择题（用例句或真题句考读音、意思）；答错的词自动加到队尾重背，答对的词按你的作答情况自适应安排复习间隔（答得快就拉长，答错就缩短）。</p>';
  h+='<div class=hero><div class=trow><b>词库</b><span class=chip>共 '+tot+' 词</span></div><div class=kv><span>到期复习 <b>'+d+'</b></span><span>还没背过 <b>'+nw+'</b></span></div>'+
-  '<div class=todo>'+(tot?'<a class="btn go" id=vgo href="#/vocab/go">开始背词（到期 + 新词最多 10 个）</a>':'<p class=note style="margin:0">词库是空的，先在下面导入。</p>')+'</div></div>';
- h+='<h2>导入词表</h2><p class=note>每行一个词，用 | 分隔：<b>单词 | 读音 | 意思 | 例句和讲解</b>（例句里的换行用 ¶ 表示）。只写前两三列也可以。已有的词会更新读音、意思和例句，背词进度保留。</p>'+
-  '<textarea id=vtx rows=7 style="width:100%;box-sizing:border-box" placeholder="例：&#10;譲る | ゆずる | 让；让给 | 席を～ （让座）"></textarea>'+
-  '<p><label class="btn go" style="display:inline-block;cursor:pointer">选择词表文件（.txt）<input type=file id=vfile accept=".txt,text/plain" style="display:none"></label></p><p><button class="btn go" id=vimp>导入</button> <button class=btn id=vexp>复制词库文本</button> <button class="btn bad" id=vclr>清空词库</button></p><p id=vmsg class=note></p>'+
-  ttsBox()+
-  '<h2>背词进度备份</h2><p class=note>把听力和背词的进度导出成文件，换设备或清缓存前先备份；导入会覆盖当前进度。</p><p><button class="btn go" id=bkx>导出进度（文件）</button> <label class=btn style="display:inline-block;cursor:pointer">导入进度<input type=file id=bki accept=".json,application/json" style="display:none"></label></p><p id=bkm class=note></p>';
+  '<div class=todo>'+(tot?'<p style="margin:0 0 8px"><a class="btn go" id=vgo href="#/vocab/go" style="width:100%;box-sizing:border-box">背词 + 小测（到期 + 新词最多 10 个）</a></p><div class=rrow><a class=btn href="#/vocab/study">📖 单纯背词</a><a class=btn href="#/vocab/quiz">🎯 单纯测验</a></div>':'<p class=note style="margin:0">词库是空的，先在下面导入。</p>')+'</div></div>';
+ h+='<h2>词表</h2><p class=note>文件格式：每行一个词，用 | 分隔：<b>单词 | 读音 | 意思 | 例句和讲解</b>（例句里的换行用 ¶ 表示），只写前两三列也行。导入时已有的词会更新读音、意思和例句，背词进度保留。</p>'+
+  '<p><label class="btn go" style="display:inline-block;cursor:pointer">导入词表文件（.txt）<input type=file id=vfile accept=".txt,text/plain" style="display:none"></label> <button class=btn id=vexp>导出词表文件</button> <button class="btn bad" id=vclr>清空词库</button></p><p id=vmsg class=note></p>'+
+  ttsBox()+offBox('t','📥 离线语音','把单词和例句的神经网络语音存到本机，之后没有网络也能听（下载一次即可）。','下载全部语音')+
+  '<h2>进度备份</h2><p class=note>把听力和背词的进度导出，换设备或清缓存前先备份；导入会覆盖当前进度。</p>'+bkBox();
  render(h);
- ttsBoxBind();
- $('#bkx').onclick=function(){bkExport($('#bkm'));};
- $('#bki').onchange=function(){if(this.files[0])bkImport(this.files[0],$('#bkm'),vocab);};
- $('#vimp').onclick=function(){var r=vParse($('#vtx').value);if(!r.add.length&&!r.upd){$('#vmsg').textContent='没有读到词。';return;}V.cards=V.cards.concat(r.add);vSave();vocab();$('#vmsg').textContent='新增 '+r.add.length+' 个词，更新 '+r.upd+' 个。';};
- $('#vfile').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){$('#vtx').value=String(fr.result||'');$('#vimp').click();};fr.readAsText(f,'utf-8');};
- $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m,(c.x||'').replace(/\n/g,'¶')].join(' | ');}).join('\n');if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){$('#vmsg').textContent='已复制 '+V.cards.length+' 个词到剪贴板。';});}else{$('#vtx').value=t;}};
+ ttsBoxBind();bkBind(vocab);offInit('t',ttsList,'q4tts-v1','语音');
+ $('#vfile').onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){var r=vParse(String(fr.result||''));if(!r.add.length&&!r.upd){$('#vmsg').textContent='没有读到词。';return;}V.cards=V.cards.concat(r.add);vSave();vocab();$('#vmsg').textContent='新增 '+r.add.length+' 个词，更新 '+r.upd+' 个。';};fr.readAsText(f,'utf-8');};
+ $('#vexp').onclick=function(){var t=V.cards.map(function(c){return [c.w,c.r,c.m,(c.x||'').replace(/\n/g,'¶')].join(' | ');}).join('\n');try{dlFile('q4-词表.txt',t+'\n');$('#vmsg').textContent='已导出 '+V.cards.length+' 个词。';}catch(e){$('#vmsg').textContent='导出失败。';}};
  $('#vclr').onclick=function(){if(confirm('确定清空词库和背词进度？')){V={cards:[],seed:window.Q4V?Q4V.ver:0};vSave();vocab();}};
 }
 function vocabGo(){
  vLoad();var q=shuffle(vDue()).concat(vNew().slice(0,10));
  if(!q.length){render('<h1>今天背完了</h1><p class=note>没有到期的词，也没有新词了。</p><a class=btn href="#/vocab">返回</a>');return;}
- VQ={q:q,i:0,start:0,fl:{},batch:[],qz:0,qzok:0};vCard();
+ VQT='all';VQ={q:q,i:0,start:0,fl:{},batch:[],qz:0,qzok:0,mode:'full'};vCard();
+}
+var VQT='all',VQS='due';
+function vocabStudy(){
+ vLoad();var q=shuffle(vDue()).concat(vNew().slice(0,10));
+ if(!q.length){q=shuffle(V.cards).slice(0,10);}
+ if(!q.length){render('<h1>词库是空的</h1><a class=btn href="#/vocab">返回</a>');return;}
+ VQ={q:q,i:0,start:0,fl:{},batch:[],qz:0,qzok:0,mode:'study'};vCard();
+}
+function vocabQuizSetup(){
+ setKeys(null);vLoad();
+ render('<h1>单纯测验</h1><p class=note>只做选择题，不看单词卡。答对按自适应间隔安排复习，答错的词会安排今天重测。每轮 10 题。</p>'+
+  '<h2>题型</h2><p><label><input type=radio name=qt value=all '+(VQT==='all'?'checked':'')+' style="width:auto"> 全部题型（读音 / 意思 / 汉字 / 例句填空）</label></p><p><label><input type=radio name=qt value=read '+(VQT==='read'?'checked':'')+' style="width:auto"> 仅测读音（只考汉字词，句中词怎么读）</label></p>'+
+  '<h2>范围</h2><p><label><input type=radio name=qs value=due '+(VQS==='due'?'checked':'')+' style="width:auto"> 到期复习 + 新词（没有到期的就随机抽）</label></p><p><label><input type=radio name=qs value=all '+(VQS==='all'?'checked':'')+' style="width:auto"> 全部词随机</label></p>'+
+  '<p><button class="btn go" id=qgo style="width:100%">开始测验</button> <a class=btn href="#/vocab">返回</a></p>');
+ $('#qgo').onclick=function(){VQT=document.querySelector('input[name=qt]:checked').value;VQS=document.querySelector('input[name=qs]:checked').value;location.hash='#/vocab/quizgo';};
+}
+function vocabQuizGo(){
+ vLoad();var pool=VQS==='all'?V.cards.slice():vDue().concat(vNew());
+ if(VQT==='read')pool=pool.filter(function(c){return c.r&&c.r!==c.w&&hasKanji(c.w);});
+ if(VQS==='due'&&pool.length<10){var more=V.cards.filter(function(c){return pool.indexOf(c)<0&&(VQT!=='read'||(c.r&&c.r!==c.w&&hasKanji(c.w)));});pool=pool.concat(shuffle(more));}
+ pool=shuffle(pool).slice(0,10);
+ if(pool.length<2){render('<h1>没有可测的词</h1><p class=note>词库里可考的词太少。</p><a class=btn href="#/vocab">返回</a>');return;}
+ VQ={q:pool,i:pool.length,start:0,fl:{},batch:pool.slice(),qz:0,qzok:0,mode:'quiz'};vQuiz();
 }
 /* ===== 朗读（浏览器自带日语 TTS） ===== */
 var TTSV=null,TKEY='q4tts_v1',TP={};
@@ -307,17 +329,23 @@ function ttsInit(){var vs=jaVoices();TTSV=null;
  if(TP.v)TTSV=vs.filter(function(v){return v.voiceURI===TP.v;})[0]||null;
  if(!TTSV)TTSV=vs.slice().sort(function(a,b){return vScore(b)-vScore(a);})[0]||null;}
 if(window.speechSynthesis){ttsInit();try{speechSynthesis.onvoiceschanged=ttsInit;}catch(e){}}
-function say(t){if(!window.speechSynthesis||!t)return;try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.r||.9;speechSynthesis.speak(u);}catch(e){}}
+var AU=null;
+function browserSay(t){if(!window.speechSynthesis||!t)return;try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.r||.9;speechSynthesis.speak(u);}catch(e){}}
+function say(t){if(!t)return;var f=window.Q4T&&Q4T[t];
+ try{if(AU){AU.pause();AU=null;}}catch(e){}
+ if(f&&!TP.b){try{speechSynthesis.cancel();}catch(e){}AU=new Audio('tts/'+f);var pr=AU.play();if(pr&&pr.catch)pr.catch(function(){browserSay(t);});return;}
+ browserSay(t);}
 function ttsBox(){var vs=jaVoices().sort(function(a,b){return vScore(b)-vScore(a);});
  var o=vs.map(function(v){return '<option value="'+esc(v.voiceURI)+'"'+(TTSV&&TTSV.voiceURI===v.voiceURI?' selected':'')+'>'+esc(v.name)+(vScore(v)>=10?' ★':'')+'</option>';}).join('');
  var rs=[.7,.8,.9,1,1.1].map(function(r){return '<option value="'+r+'"'+((TP.r||.9)===r?' selected':'')+'>'+r+'x</option>';}).join('');
- return '<h2>朗读声音</h2><p class=note>声音由你的设备/浏览器提供，不同设备差别很大。带 ★ 的是自然度较高的（一般是 Natural / Neural / Enhanced / Google / Kyoko 之类）。'+
+ return '<h2>朗读声音</h2><p class=note>单词和例句默认播放预先合成的神经网络语音（VOICEVOX:春日部つむぎ）；没有预合成的句子才用设备自带语音。</p><p><label><input type=checkbox id=tbrow '+(TP.b?'checked':'')+' style="width:auto"> 全部改用设备自带语音</label></p><p class=note>下面是设备自带语音的设置：声音由你的设备/浏览器提供，不同设备差别很大。带 ★ 的是自然度较高的（一般是 Natural / Neural / Enhanced / Google / Kyoko 之类）。'+
   (vs.length?'':'<b>这台设备没有检测到日语语音，</b>请在系统里安装日语语音包。')+'</p>'+
   '<p><select id=tvoice style="max-width:100%">'+o+'</select> <select id=trate>'+rs+'</select> <button class=btn id=ttest type=button>🔊 试听</button></p>';}
-function ttsBoxBind(){var v=$('#tvoice'),r=$('#trate'),t=$('#ttest');if(!v)return;
- v.onchange=function(){TP.v=this.value;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}ttsInit();say('先生に謝る');};
- r.onchange=function(){TP.r=+this.value;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}say('先生に謝る');};
- t.onclick=function(){say('先生に謝る。ゆっくり話すようにします。');};}
+function ttsBoxBind(){var v=$('#tvoice'),r=$('#trate'),t=$('#ttest'),b=$('#tbrow');if(!v)return;
+ b.onchange=function(){TP.b=this.checked?1:0;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}};
+ v.onchange=function(){TP.v=this.value;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}ttsInit();browserSay('先生に謝る');};
+ r.onchange=function(){TP.r=+this.value;try{localStorage.setItem(TKEY,JSON.stringify(TP));}catch(e){}browserSay('先生に謝る');};
+ t.onclick=function(){browserSay('先生に謝る。ゆっくり話すようにします。');};}
 function spk(s){return '<button class=tts type=button data-say="'+esc(s)+'" title="朗读">🔊</button>';}
 function ttsBind(){var b=document.querySelectorAll('.tts');for(var j=0;j<b.length;j++)b[j].onclick=function(e){e.stopPropagation();say(this.getAttribute('data-say'));};}
 
@@ -358,16 +386,17 @@ function vBack(c){var h='<div style="font-size:1.3em">'+(c.r&&c.r!==c.w?esc(c.r)
 function vCard(){
  var Q=VQ;
  if(Q.i>=Q.q.length){if(Q.batch.length){vQuiz();return;}
-  setKeys(null);render('<h1>这一组完成</h1><p class=note>小题答对 '+Q.qzok+' / '+Q.qz+'。答错的词已自动重背，并按记忆曲线安排之后的复习。</p><p><a class="btn go" href="#/vocab/go">再来一组</a> <a class=btn href="#/vocab">返回</a></p>');return;}
+  if(Q.mode==='study'){setKeys(null);render('<h1>看完了</h1><p class=note>这 '+Q.q.length+' 个词已看完。想检查记没记住，去做一轮测验。</p><p><a class="btn go" href="#/vocab/quiz">🎯 去测验</a> <button class=btn id=vagain>再看一组</button> <a class=btn href="#/vocab">返回</a></p>');$('#vagain').onclick=vocabStudy;return;}
+  setKeys(null);render('<h1>这一组完成</h1><p class=note>小题答对 '+Q.qzok+' / '+Q.qz+'。答错的词已自动重背，并按记忆曲线安排之后的复习。</p><p><button class="btn go" id=vagain>再来一组</button> <a class=btn href="#/vocab">返回</a></p>');$('#vagain').onclick=vocabGo;return;}
  var c=Q.q[Q.i],shown=!!Q.fl[Q.i];
  var inB=Q.batch.indexOf(c)>=0,last=(inB?Q.batch.length:Q.batch.length+1)>=5||Q.i+1>=Q.q.length;
- render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(c.n?'':' · 新词')+'　本轮第 '+(Q.i-Q.start+1)+' / 5 个</p><div class=hero style="text-align:center"><div style="font-size:2.2em;margin:18px 0">'+esc(c.w)+'</div><div id=vback style="min-height:72px">'+(shown?vBack(c):'')+'</div></div>'+
+ render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(c.n?'':' · 新词')+(Q.mode==='study'?'':'　本轮第 '+(Q.i-Q.start+1)+' / 5 个')+'</p><div class=hero style="text-align:center"><div style="font-size:2.2em;margin:18px 0">'+esc(c.w)+'</div><div id=vback style="min-height:72px">'+(shown?vBack(c):'')+'</div></div>'+
   '<p id=vrow>'+(shown?'':'<button class="btn go" id=vflip style="width:100%">翻面（空格）</button>')+'</p>'+
-  '<div class=rrow><button class=btn id=vprev'+(Q.i>Q.start?'':' disabled')+'>◀ 上一个</button><button class="btn go" id=vnext>'+(last?'做小测 ▶':'下一个 ▶')+'</button></div>');
+  '<div class=rrow><button class=btn id=vprev'+(Q.i>(Q.mode==='study'?0:Q.start)?'':' disabled')+'>◀ 上一个</button><button class="btn go" id=vnext>'+(Q.mode==='study'?(Q.i+1>=Q.q.length?'完成 ▶':'下一个 ▶'):(last?'做小测 ▶':'下一个 ▶'))+'</button></div>');
  ttsBind();
  function flip(){if(Q.fl[Q.i])return;Q.fl[Q.i]=1;$('#vback').innerHTML=vBack(c);$('#vrow').innerHTML='';ttsBind();say(wordSay(c));}
- function next(){if(Q.batch.indexOf(c)<0)Q.batch.push(c);Q.i++;if(Q.batch.length>=5||Q.i>=Q.q.length)vQuiz();else vCard();}
- function prev(){if(Q.i>Q.start){Q.i--;vCard();}}
+ function next(){if(Q.mode==='study'){Q.i++;vCard();return;}if(Q.batch.indexOf(c)<0)Q.batch.push(c);Q.i++;if(Q.batch.length>=5||Q.i>=Q.q.length)vQuiz();else vCard();}
+ function prev(){if(Q.i>(Q.mode==='study'?0:Q.start)){Q.i--;vCard();}}
  if($('#vflip'))$('#vflip').onclick=flip;
  $('#vnext').onclick=next;$('#vprev').onclick=prev;
  setKeys(function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!Q.fl[Q.i])flip();else next();}
@@ -381,7 +410,7 @@ function pick(c,key,n,same){var pool=V.cards.filter(function(o){return o!==c&&o[
 function mFirst(m){return String(m).replace(/[①-⑨⓪]/g,'').trim().split('；')[0].replace(/^\d[）)]\s*/,'').trim();}
 function vMake(c){
  var T=['mean','mean'];if(c.r&&c.r!==c.w){T.push('read','read');if(hasKanji(c.w))T.push('kanji');}
- var ex=exLines(c).filter(function(l){return l.indexOf('～')>=0;})[0];if(ex)T.push('cloze','cloze');
+ var ex=exLines(c).filter(function(l){return l.indexOf('～')>=0;})[0];if(ex)T.push('cloze','cloze');if(VQT==='read'&&c.r&&c.r!==c.w)T=['read'];
  var t=T[Math.floor(Math.random()*T.length)],last=function(k){return function(o){return String(o[k]).slice(-1)===String(c[k]).slice(-1);};};
  var q,ans,ops,ctx=null,wm=wMain(c);
  if(t==='read'||t==='mean'){ctx=vCtx(c);
@@ -398,8 +427,10 @@ function vQuiz(){
  var qs=Q.batch.map(vMake),i=0,ok=0;Q.batch=[];
  function show(){
   if(i>=qs.length){Q.qz+=qs.length;Q.qzok+=ok;Q.start=Q.i;setKeys(null);vSave();
-   render('<h1>小测 '+ok+' / '+qs.length+'</h1>'+qs.filter(function(x){return !x.right;}).map(function(x){return '<div class=hero style="text-align:left"><b>'+esc(x.c.w)+'</b>'+vBack(x.c)+'</div>';}).join('')+(ok<qs.length?'<p class=note>答错的词已加到队尾，马上重背，之后按记忆曲线再复习。</p>':'<p class=note>全对！</p>')+'<p><button class="btn go" id=vnext2>继续背词 →</button></p>');
-   ttsBind();$('#vnext2').onclick=vCard;setKeys(function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();vCard();}});return;}
+   render('<h1>小测 '+ok+' / '+qs.length+'</h1>'+qs.filter(function(x){return !x.right;}).map(function(x){return '<div class=hero style="text-align:left"><b>'+esc(x.c.w)+'</b>'+vBack(x.c)+'</div>';}).join('')+(ok<qs.length?'<p class=note>答错的词已加到队尾，马上重背，之后按记忆曲线再复习。</p>':'<p class=note>全对！</p>')+(Q.mode==='quiz'?'<p>'+(ok<qs.length?'<button class="btn go" id=vretry>错题再测 ('+(qs.length-ok)+')</button> ':'')+'<button class="btn go" id=vagain>再来一轮</button> <a class=btn href="#/vocab/quiz">换设置</a> <a class=btn href="#/vocab">返回</a></p>':'<p><button class="btn go" id=vnext2>继续背词 →</button></p>'));
+   ttsBind();
+   if(Q.mode==='quiz'){Q.q=[];$('#vagain').onclick=vocabQuizGo;if($('#vretry'))$('#vretry').onclick=function(){Q.batch=qs.filter(function(x){return !x.right;}).map(function(x){return x.c;});vQuiz();};setKeys(null);return;}
+   $('#vnext2').onclick=vCard;setKeys(function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();vCard();}});return;}
   var x=qs[i];x.t0=Date.now();
   /* 读音题答前不给朗读（会泄露答案），其他题可以先听句子 */
   var pre=(x.ctx&&x.t==='mean')?' '+spk(x.ctx.say):'';
@@ -435,7 +466,7 @@ function route(){
  else if(v==='drill'){startDrill(p[1],p[2]);}
  else if(v==='review'){DRILL=null;review();}
  else if(v==='check'){DRILL=null;check();}
- else if(v==='vocab'){DRILL=null;if(p[1]==='go')vocabGo();else vocab();}
+ else if(v==='vocab'){DRILL=null;if(p[1]==='go')vocabGo();else if(p[1]==='study')vocabStudy();else if(p[1]==='quiz')vocabQuizSetup();else if(p[1]==='quizgo')vocabQuizGo();else vocab();}
  else{DRILL=null;home();}
 }
 load();
