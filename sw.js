@@ -1,6 +1,6 @@
-const C='q4app-v8',A='q4audio-v1';
-self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./app.js','./data.js','./vocab.js','./tts/index.js','./manifest.json'])));self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C&&k!==A&&k!=='q4tts-v1').map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
+const C='q4app-v9',A='q4audio-v1';
+self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./app.js','./data.js','./vocab.js','./grammar.js','./manifest.json'])));self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C&&k!==A&&!k.startsWith('q4tts-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 /* 录音：已离线下载的优先用缓存（并支持 Range，iOS/Safari 播放音频需要） */
 async function audioResp(req){
  const m=await caches.match(req.url);

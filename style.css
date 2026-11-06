@@ -150,3 +150,6 @@ th{background:rgba(255,255,255,.35)}table{border-radius:14px;overflow:hidden}
 
 .tts{border:0;background:none;font-size:1em;cursor:pointer;padding:0 4px;width:auto;display:inline;min-height:0}
 .ver{font-size:.72em;opacity:.55;text-align:right;padding:2px 12px 0}
+
+.pcal{display:flex;gap:6px;margin:6px 0}.pday{flex:1;text-align:center;border:1px solid var(--bd);border-radius:8px;padding:4px 0;font-size:1.1em;background:var(--card)}.pday small{display:block;font-size:.65em;opacity:.6}.pday.ok{background:var(--ok);color:#fff;border-color:var(--ok)}.pday.miss{opacity:.55}.pday.today{border:2px solid var(--ac)}
+.hub .card span+span{margin-top:4px}
