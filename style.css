@@ -147,3 +147,6 @@ th{background:rgba(255,255,255,.35)}table{border-radius:14px;overflow:hidden}
 .rrow{display:flex;gap:8px;margin:8px 0}.rrow .btn{flex:1;margin:0;padding:12px 4px;text-align:center;white-space:nowrap}.rrow .btn:disabled{opacity:.45;cursor:default}
 .obar{height:8px;border-radius:4px;background:rgba(127,127,127,.25);overflow:hidden;margin:6px 0}
 .obar i{display:block;height:100%;width:0;background:#4a9;transition:width .2s}
+
+.tts{border:0;background:none;font-size:1em;cursor:pointer;padding:0 4px;width:auto;display:inline;min-height:0}
+.ver{font-size:.72em;opacity:.55;text-align:right;padding:2px 12px 0}
