@@ -32,8 +32,8 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v10 · 11-06 14:05';
-function render(h){stopAudio();try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
+var APPV='v11 · 11-06 14:25';
+function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
 document.addEventListener('keydown',function(e){if(KEYH&&!e.metaKey&&!e.ctrlKey&&!e.altKey)KEYH(e);});
@@ -82,6 +82,8 @@ function home(){/* 听力即时应答首页 */
 /* ===== 离线录音 / 离线语音（同一套下载逻辑，按前缀区分） ===== */
 var OFFC='q4audio-v1',OFFBUSY=false;
 function allAudio(){var r=[];D.papers.forEach(function(p){p.clips.forEach(function(c){r.push(c.f);});});return r;}
+function replayBtn(){return '<button class=btn id=replay style="width:100%">🔊 重新朗读（单词 + 全部例句）</button>';}
+function replayBind(f){var b=document.getElementById('replay');if(b)b.onclick=f;}
 function ttsList(){var o={},r=[];if(window.Q4T)Object.keys(Q4T).forEach(function(k){var f='tts/'+Q4T[k];if(!o[f]){o[f]=1;r.push(f);}});return r;}
 function offBox(p,title,desc,btn){return '<div class=hero id='+p+'offbox><div class=trow><b>'+title+'</b><span class=chip id='+p+'offchip>检查中…</span></div><p class=note style="margin:6px 0 8px">'+desc+'</p><div id='+p+'offbar class=obar style="display:none"><i></i></div><p><button class="btn go" id='+p+'offbtn>'+btn+'</button> <button class=btn id='+p+'offdel style="display:none">清除离线内容</button></p><p id='+p+'offmsg class=note></p></div>';}
 function offInit(p,list,cn,noun){
@@ -330,15 +332,21 @@ function jaVoices(){try{return speechSynthesis.getVoices().filter(function(v){re
 function vScore(v){var n=v.name||'';return (/natural|neural|online|premium|enhanced|高品质|高品質|拡張/i.test(n)?10:0)+(/Google|Kyoko|Otoya|O-Ren|Nanami|Keita|Haruka|Ayumi|Sayaka|Ichiro|Mizuki/i.test(n)?5:0)+(v.localService?0:1);}
 function ttsInit(){TTSV=jaVoices().sort(function(a,b){return vScore(b)-vScore(a);})[0]||null;}
 if(window.speechSynthesis){ttsInit();try{speechSynthesis.onvoiceschanged=ttsInit;}catch(e){}}
-var AU=null;
-function browserSay(t){if(!window.speechSynthesis||!t)return;try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.s||.8;speechSynthesis.speak(u);}catch(e){}}
-function say(t){if(!t)return;var v=curVoice();
+var AU=null,QT=0;
+function browserSay(t,cb){if(!window.speechSynthesis||!t){if(cb)cb();return;}try{speechSynthesis.cancel();if(!/[。！？!?]$/.test(t))t+='。';var u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';if(TTSV)u.voice=TTSV;u.rate=TP.s||.8;u.onend=function(){if(cb)cb();};u.onerror=function(){if(cb)cb();};speechSynthesis.speak(u);}catch(e){if(cb)cb();}}
+function sayOne(t,cb){if(!t){if(cb)cb();return;}var v=curVoice();
  var go=function(){var m=window.Q4TV&&Q4TV[v],f=m&&m[t];
-  if(f){try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}
-   AU=new Audio('tts/'+v+'/'+f);AU.defaultPlaybackRate=TP.s||.8;AU.playbackRate=TP.s||.8;try{AU.preservesPitch=true;AU.webkitPreservesPitch=true;}catch(e){}
-   var pr=AU.play();if(pr&&pr.catch)pr.catch(function(){browserSay(t);});}
-  else browserSay(t);};
+  if(f){try{speechSynthesis.cancel();}catch(e){}
+   if(!AU)AU=new Audio();AU.onended=null;AU.onerror=null;try{AU.pause();}catch(e){}
+   AU.defaultPlaybackRate=TP.s||.8;AU.src='tts/'+v+'/'+f;AU.playbackRate=TP.s||.8;try{AU.preservesPitch=true;AU.webkitPreservesPitch=true;}catch(e){}
+   AU.onended=function(){if(cb)cb();};AU.onerror=function(){if(cb)cb();};
+   var pr=AU.play();if(pr&&pr.catch)pr.catch(function(){browserSay(t,cb);});}
+  else browserSay(t,cb);};
  if(window.Q4TV&&Q4TV[v])go();else loadVoice(v,go);}
+function say(t){QT++;sayOne(t);}
+/* 依次朗读多句（单词读音 + 全部例句）；再点任意 🔊 或换页会中断 */
+function sayQ(list){var tok=++QT,i=0;list=list.filter(Boolean);
+ (function next(){if(tok!==QT||i>=list.length)return;sayOne(list[i++],function(){if(tok===QT)setTimeout(next,350);});})();}
 function topBar(){
  var sp=[.6,.7,.8,.9,1].map(function(r){return '<option value="'+r+'"'+((TP.s||.8)===r?' selected':'')+'>'+r+'x</option>';}).join(''),
   vo=VOICES.map(function(v){return '<option value="'+v[0]+'"'+(curVoice()===v[0]?' selected':'')+'>'+esc(v[1])+'</option>';}).join('');
@@ -379,6 +387,7 @@ function ctxHtml(c,x){var wm=wMain(c),s=esc(x.jp);
  if(x.blank)return s.replace(/～/g,'<b>'+esc(wm)+'</b>');
  return s.split(esc(x.hit)).join('<b>'+esc(x.hit)+'</b>');}
 
+function vAll(c){return [wordSay(c)].concat(exLines(c).map(function(l){return exSay(c,exParts(l).jp);}));}
 function vBack(c){var h='<div style="font-size:1.3em">'+(c.r&&c.r!==c.w?esc(c.r)+' ':'')+spk(wordSay(c))+'</div><div style="margin-top:6px">'+esc(c.m)+'</div>';
  exLines(c).forEach(function(l){var p=exParts(l);h+='<div style="margin-top:4px;text-align:left;font-size:.92em;opacity:.9">'+esc(l)+' '+spk(exSay(c,p.jp))+'</div>';});
  return h;}
@@ -392,16 +401,16 @@ function vCard(){
  var c=Q.q[Q.i],shown=!!Q.fl[Q.i];
  var inB=Q.batch.indexOf(c)>=0,last=(inB?Q.batch.length:Q.batch.length+1)>=5||Q.i+1>=Q.q.length;
  render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(c.n?'':' · 新词')+(Q.mode==='study'?'':'　本轮第 '+(Q.i-Q.start+1)+' / 5 个')+'</p><div class=hero style="text-align:center"><div style="font-size:2.2em;margin:18px 0">'+esc(c.w)+'</div><div id=vback style="min-height:72px">'+(shown?vBack(c):'')+'</div></div>'+
-  '<p id=vrow>'+(shown?'':'<button class="btn go" id=vflip style="width:100%">翻面（空格）</button>')+'</p>'+
+  '<p id=vrow>'+(shown?replayBtn():'<button class="btn go" id=vflip style="width:100%">翻面（空格）</button>')+'</p>'+
   '<div class=rrow><button class=btn id=vprev'+(Q.i>(Q.mode==='study'?0:Q.start)?'':' disabled')+'>◀ 上一个</button><button class="btn go" id=vnext>'+(Q.mode==='study'?(Q.i+1>=Q.q.length?'完成 ▶':'下一个 ▶'):(last?'做小测 ▶':'下一个 ▶'))+'</button></div>');
- ttsBind();
- function flip(){if(Q.fl[Q.i])return;Q.fl[Q.i]=1;$('#vback').innerHTML=vBack(c);$('#vrow').innerHTML='';ttsBind();say(wordSay(c));}
+ ttsBind();if(shown){replayBind(function(){sayQ(vAll(c));});sayQ(vAll(c));}
+ function flip(){if(Q.fl[Q.i])return;Q.fl[Q.i]=1;$('#vback').innerHTML=vBack(c);$('#vrow').innerHTML=replayBtn();ttsBind();replayBind(function(){sayQ(vAll(c));});sayQ(vAll(c));}
  function next(){if(Q.mode==='study'){Q.i++;vCard();return;}if(Q.batch.indexOf(c)<0)Q.batch.push(c);Q.i++;if(Q.batch.length>=5||Q.i>=Q.q.length)vQuiz();else vCard();}
  function prev(){if(Q.i>(Q.mode==='study'?0:Q.start)){Q.i--;vCard();}}
  if($('#vflip'))$('#vflip').onclick=flip;
  $('#vnext').onclick=next;$('#vprev').onclick=prev;
  setKeys(function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!Q.fl[Q.i])flip();else next();}
-  else if(e.key==='ArrowRight'){next();}else if(e.key==='ArrowLeft'){prev();}else if(e.key==='s'||e.key==='S'){say(wordSay(c));}});
+  else if(e.key==='ArrowRight'){next();}else if(e.key==='ArrowLeft'){prev();}else if(e.key==='s'||e.key==='S'){sayQ(vAll(c));}});
 }
 /* —— 每 5 个词的小测：用例句 / 真题句选读音或意思 —— */
 function hasKanji(w){return /[一-鿿]/.test(w);}
@@ -475,6 +484,7 @@ function sched(p,good,ms){var t=dayNum(),nxt;
  else{p.e=Math.max(1.3,(p.e||2.3)-.2);p.lp=(p.lp||0)+1;p.iv=0;p.box=0;p.due=t;nxt='已加到队尾重背，今天还会再出现';}
  p.n=1;return nxt;}
 function gMeanOf(m){return String(m).replace(/^[①-⑩]/,'').trim();}
+function gAll(it){var r=[];it.s.forEach(function(s){s.ex.forEach(function(e){r.push(e.jp);});});return r;}
 function gBack(it){var h='';
  it.s.forEach(function(s){h+='<div style="margin-top:8px;text-align:left"><b>'+esc(s.m)+'</b></div>';
   s.ex.forEach(function(e){h+='<div style="margin-top:4px;text-align:left;font-size:.95em;line-height:2">'+e.rb+' '+spk(e.jp)+'<br><span class=note>'+esc(e.zh)+'</span></div>';});});
@@ -507,10 +517,10 @@ function gCard(){
  var it=Q.q[Q.i],shown=!!Q.fl[Q.i];
  var inB=Q.batch.indexOf(it)>=0,last=(inB?Q.batch.length:Q.batch.length+1)>=5||Q.i+1>=Q.q.length,lo=st?0:Q.start;
  render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(gget(it).n?'':' · 新语法')+(st?'':'　本轮第 '+(Q.i-Q.start+1)+' / 5 条')+'</p><div class=hero style="text-align:center"><div style="font-size:2em;margin:14px 0">'+it.gr+'</div><div id=gback>'+(shown?gBack(it):'')+'</div></div>'+
-  '<p id=grow>'+(shown?'':'<button class="btn go" id=gflip style="width:100%">翻面（空格）</button>')+'</p>'+
+  '<p id=grow>'+(shown?replayBtn():'<button class="btn go" id=gflip style="width:100%">翻面（空格）</button>')+'</p>'+
   '<div class=rrow><button class=btn id=gprev'+(Q.i>lo?'':' disabled')+'>◀ 上一个</button><button class="btn go" id=gnext>'+(st?(Q.i+1>=Q.q.length?'完成 ▶':'下一个 ▶'):(last?'做小测 ▶':'下一个 ▶'))+'</button></div>');
- ttsBind();
- function flip(){if(Q.fl[Q.i])return;Q.fl[Q.i]=1;$('#gback').innerHTML=gBack(it);$('#grow').innerHTML='';ttsBind();var e=it.s[0].ex[0];say(e.jp);}
+ ttsBind();if(shown){replayBind(function(){sayQ(gAll(it));});sayQ(gAll(it));}
+ function flip(){if(Q.fl[Q.i])return;Q.fl[Q.i]=1;$('#gback').innerHTML=gBack(it);$('#grow').innerHTML=replayBtn();ttsBind();replayBind(function(){sayQ(gAll(it));});sayQ(gAll(it));}
  function next(){if(st){Q.i++;gCard();return;}if(Q.batch.indexOf(it)<0)Q.batch.push(it);Q.i++;if(Q.batch.length>=5||Q.i>=Q.q.length)gQuiz();else gCard();}
  function prev(){if(Q.i>lo){Q.i--;gCard();}}
  if($('#gflip'))$('#gflip').onclick=flip;
