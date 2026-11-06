@@ -32,7 +32,7 @@ var app=$('#app');
 function nav(){return '<nav><a href="#/home">🏡 首页</a><a href="#/listen">🎧 听力</a><a href="#/vocab">📚 单词('+vDue().length+')</a><a href="#/gram">📖 语法('+gDue().length+')</a><a href="#/review">🔁 重听('+wrongOpen().length+')</a><a href="#/check">🔍 抽查清单</a></nav>';}
 var audioEl=null;
 function stopAudio(){if(audioEl){try{audioEl.pause();}catch(e){}audioEl=null;}}
-var APPV='v18 · 11-06 14:32';
+var APPV='v20 · 11-06 16:00';
 function render(h){stopAudio();QT++;try{if(AU)AU.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}app.innerHTML=nav()+topBar()+'<main>'+h+'</main>';window.scrollTo(0,0);topBind();}
 var KEYH=null;
 function setKeys(f){KEYH=f;}
@@ -84,7 +84,7 @@ var OFFC='q4audio-v1',OFFBUSY=false;
 function allAudio(){var r=[];D.papers.forEach(function(p){p.clips.forEach(function(c){r.push(c.f);});});return r;}
 function replayBtn(){return '<button class=btn id=replay style="width:100%">🔊 重新朗读（单词 + 全部例句）</button>';}
 function replayBind(f){var b=document.getElementById('replay');if(b)b.onclick=f;}
-function ttsList(){var o={},r=[];if(window.Q4T)Object.keys(Q4T).forEach(function(k){var f='tts/'+Q4T[k];if(!o[f]){o[f]=1;r.push(f);}});return r;}
+function ttsList(){var o={},r=[],v=curVoice(),m=window.Q4TV&&Q4TV[v];if(m)Object.keys(m).forEach(function(k){var f='tts/'+v+'/'+m[k];if(!o[f]){o[f]=1;r.push(f);}});return r;}
 function offBox(p,title,desc,btn){return '<div class=hero id='+p+'offbox><div class=trow><b>'+title+'</b><span class=chip id='+p+'offchip>检查中…</span></div><p class=note style="margin:6px 0 8px">'+desc+'</p><div id='+p+'offbar class=obar style="display:none"><i></i></div><p><button class="btn go" id='+p+'offbtn>'+btn+'</button> <button class=btn id='+p+'offdel style="display:none">清除离线内容</button></p><p id='+p+'offmsg class=note></p></div>';}
 function offInit(p,list,cn,noun){
  p=p||'';list=list||allAudio;cn=cn||OFFC;noun=noun||'录音';
@@ -582,7 +582,7 @@ function sched(p,good,ms){var t=dayNum(),nxt;
  else{p.e=Math.max(1.3,(p.e||2.3)-.2);p.lp=(p.lp||0)+1;p.iv=0;p.box=0;p.due=t;nxt='已加到队尾重背，今天还会再出现';}
  p.n=1;return nxt;}
 function gMeanOf(m){return String(m).replace(/^[①-⑩]/,'').trim();}
-function gAll(it){var r=[];it.s.forEach(function(s){s.ex.forEach(function(e){r.push(e.jp);});});return r;}
+function gAll(it){var r=['§'+it.g];it.s.forEach(function(s){s.ex.forEach(function(e){r.push(e.jp);});});return r;}
 function gBack(it){var h='';
  it.s.forEach(function(s){h+='<div style="margin-top:8px;text-align:left"><b>'+esc(s.m)+'</b></div>';
   s.ex.forEach(function(e){h+='<div style="margin-top:4px;text-align:left;font-size:.95em;line-height:2">'+e.rb+' '+spk(e.jp)+'<br><span class=note>'+esc(e.zh)+'</span></div>';});});
@@ -614,7 +614,7 @@ function gCard(){
   render('<h1>这一组完成</h1><p class=note>小题答对 '+Q.qzok+' / '+Q.qz+'。答错的已自动重背，并按自适应间隔安排之后的复习。</p><p>'+(Q.plan?'<a class="btn go" href="#/gram">返回周计划</a>':'<button class="btn go" id=gagain>再来一组</button> <a class=btn href="#/gram">返回</a>')+'</p>');if($('#gagain'))$('#gagain').onclick=gGo;return;}
  var it=Q.q[Q.i],shown=!!Q.fl[Q.i];
  var inB=Q.batch.indexOf(it)>=0,last=(inB?Q.batch.length:Q.batch.length+1)>=5||Q.i+1>=Q.q.length,lo=st?0:Q.start;
- render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(gget(it).n?'':' · 新语法')+(st?'':'　本轮第 '+(Q.i-Q.start+1)+' / 5 条')+'</p><div class=hero style="text-align:center"><div style="font-size:2em;margin:14px 0">'+it.gr+'</div><div id=gback>'+(shown?gBack(it):'')+'</div></div>'+
+ render('<p class=note>'+(Q.i+1)+' / '+Q.q.length+(gget(it).n?'':' · 新语法')+(st?'':'　本轮第 '+(Q.i-Q.start+1)+' / 5 条')+'</p><div class=hero style="text-align:center"><div style="font-size:2em;margin:14px 0">'+it.gr+' '+spk('§'+it.g)+'</div><div id=gback>'+(shown?gBack(it):'')+'</div></div>'+
   '<p id=grow>'+(shown?replayBtn():'<button class="btn go" id=gflip style="width:100%">翻面（空格）</button>')+'</p>'+
   '<div class=rrow><button class=btn id=gprev'+(Q.i>lo?'':' disabled')+'>◀ 上一个</button><button class="btn go" id=gnext>'+(st?(Q.i+1>=Q.q.length?'完成 ▶':'下一个 ▶'):(last?'做小测 ▶':'下一个 ▶'))+'</button></div>');
  ttsBind();if(shown){replayBind(function(){sayQ(gAll(it));});sayQ(gAll(it));}
