@@ -1,4 +1,4 @@
-const C='q4app-v6',A='q4audio-v1';
+const C='q4app-v7',A='q4audio-v1';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./app.js','./data.js','./vocab.js','./manifest.json'])));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C&&k!==A).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 /* 录音：已离线下载的优先用缓存（并支持 Range，iOS/Safari 播放音频需要） */
